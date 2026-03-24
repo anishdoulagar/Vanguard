@@ -83,19 +83,21 @@ const eyeStyle = {
 
 export default function SetupPage({ onSetupComplete }) {
   const [name,     setName]     = useState("");
+  const [username, setUsername] = useState("");
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState(null);
 
   async function handleCreate() {
-    if (!name || !email || !password) { setError("All fields are required."); return; }
+    if (!name || !username || !email || !password) { setError("All fields are required."); return; }
+    if (username.length < 3) { setError("Username must be at least 3 characters."); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     setLoading(true); setError(null);
     try {
       const res  = await fetch(`${API}/auth/signup`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, username, email, password }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.detail || "Failed to create account."); return; }
@@ -148,26 +150,26 @@ export default function SetupPage({ onSetupComplete }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32, opacity: 0.35 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32, opacity: 0.6 }}>
           <div style={{
             width: 28, height: 28, borderRadius: "50%",
-            border: "1px solid var(--border)",
+            border: "1px solid rgba(255,255,255,0.25)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--accent3)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
+            color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
           }}>2</div>
-          <div style={{ color: "var(--accent3)", fontFamily: "var(--font-ui)", fontSize: 13 }}>
+          <div style={{ color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-ui)", fontSize: 13 }}>
             Add Cloud Accounts
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, opacity: 0.35 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, opacity: 0.6 }}>
           <div style={{
             width: 28, height: 28, borderRadius: "50%",
-            border: "1px solid var(--border)",
+            border: "1px solid rgba(255,255,255,0.25)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--accent3)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
+            color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
           }}>3</div>
-          <div style={{ color: "var(--accent3)", fontFamily: "var(--font-ui)", fontSize: 13 }}>
+          <div style={{ color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-ui)", fontSize: 13 }}>
             Run Your First Scan
           </div>
         </div>
@@ -182,7 +184,7 @@ export default function SetupPage({ onSetupComplete }) {
             fontFamily: "var(--font-ui)", fontSize: 11, fontWeight: 700,
             color: "#d97b3a", letterSpacing: "0.08em", marginBottom: 6,
           }}>FIRST-TIME SETUP</div>
-          <div style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--accent3)", lineHeight: 1.7 }}>
+          <div style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.7 }}>
             No users exist yet. The account you create here will be the{" "}
             <span style={{ color: "#e07070", fontWeight: 700 }}>superadmin</span>
             {" "}— it has full control over users, roles, and platform settings.
@@ -241,6 +243,15 @@ export default function SetupPage({ onSetupComplete }) {
                 type="text" placeholder="Your name"
                 value={name} onChange={e => setName(e.target.value)}
                 style={inputStyle} autoComplete="name"
+              />
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={labelStyle}>Username</label>
+              <input
+                type="text" placeholder="choose a username"
+                value={username} onChange={e => setUsername(e.target.value)}
+                style={inputStyle} autoComplete="username"
               />
             </div>
 

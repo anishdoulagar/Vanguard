@@ -42,6 +42,7 @@ function isExpired(valid_until) {
 
 function CreateUserModal({ token, onCreated, onClose }) {
   const [name,       setName]       = useState("");
+  const [username,   setUsername]   = useState("");
   const [email,      setEmail]      = useState("");
   const [role,       setRole]       = useState("analyst");
   const [validUntil, setValidUntil] = useState("");
@@ -50,13 +51,14 @@ function CreateUserModal({ token, onCreated, onClose }) {
   const [result,     setResult]     = useState(null); // after creation
 
   async function handleCreate() {
-    if (!name || !email) { setError("Name and email are required."); return; }
+    if (!name || !username || !email) { setError("Name, username, and email are required."); return; }
+    if (username.length < 3) { setError("Username must be at least 3 characters."); return; }
     setLoading(true); setError(null);
     try {
       const res  = await fetch(`${API}/admin/users`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, role, valid_until: validUntil || null }),
+        body: JSON.stringify({ name, username, email, role, valid_until: validUntil || null }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.detail || "Failed to create user."); return; }
@@ -174,6 +176,11 @@ function CreateUserModal({ token, onCreated, onClose }) {
                 <label style={lbl}>Full Name</label>
                 <input type="text" placeholder="Jane Smith" value={name}
                        onChange={e => setName(e.target.value)} style={inp} />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={lbl}>Username</label>
+                <input type="text" placeholder="janesmith" value={username}
+                       onChange={e => setUsername(e.target.value)} style={inp} />
               </div>
               <div style={{ marginBottom: 16 }}>
                 <label style={lbl}>Email Address</label>

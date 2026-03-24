@@ -410,11 +410,6 @@ export default function AuthPage({ onAuth, initialResetToken = null }) {
         <button onClick={handleSubmit} disabled={loading} className="neon-btn" style={S.btn(loading)}>
           {loading ? "SIGNING IN..." : "SIGN IN →"}
         </button>
-
-        <p style={S.hint}>
-          Don't have an account?{" "}
-          <span style={S.link} onClick={() => switchTab("signup")}>Sign up</span>
-        </p>
       </div>
     );
   }
@@ -583,18 +578,16 @@ export default function AuthPage({ onAuth, initialResetToken = null }) {
         {/* Card */}
         <div style={S.card}>
 
-          {/* Tab bar — only for login/signup */}
+          {/* Login header */}
           {!isForgotOrReset && (
-            <div style={S.tabs}>
-              {[
-                { id: "login",  label: "Sign In" },
-                { id: "signup", label: "Create Account" },
-              ].map(({ id, label }) => (
-                <button key={id} onClick={() => switchTab(id)} style={S.tab(tab === id)}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            <div style={{
+              padding: "16px 28px",
+              color: "var(--cyan)", fontFamily: "var(--font-ui)",
+              fontWeight: 700, fontSize: "13px", letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              borderBottom: "1px solid rgba(0,212,255,0.15)",
+              textShadow: "0 0 8px rgba(0,212,255,0.5)",
+            }}>Sign In</div>
           )}
 
           {/* Forgot / Reset header */}
@@ -613,7 +606,6 @@ export default function AuthPage({ onAuth, initialResetToken = null }) {
 
           {/* Forms */}
           {tab === "login"  && renderLoginForm()}
-          {tab === "signup" && renderSignupForm()}
           {tab === "forgot" && renderForgotForm()}
           {tab === "reset"  && renderResetForm()}
 

@@ -243,6 +243,7 @@ class UpdateRoleRequest(BaseModel):
 
 class AdminCreateUserRequest(BaseModel):
     name:        str
+    username:    str
     email:       str
     role:        str            = "analyst"
     valid_until: Optional[str]  = None   # ISO date string, e.g. "2026-12-31"
@@ -1316,8 +1317,11 @@ async def admin_create_user(
     if req.role not in ROLE_LEVEL:
         raise HTTPException(status_code=422,
             detail=f"Invalid role. Must be one of: {list(ROLE_LEVEL.keys())}")
-    existing = await get_user_by_email(conn, req.email)
-    if existing:
+    if not req.username or len(req.username.strip()) < 3:
+        raise HTTPException(status_code=422, detail="Username must be at least 3 characters.")
+    if await get_user_by_username(conn, req.username):
+        raise HTTPException(status_code=409, detail="Username already taken.")
+    if await get_user_by_email(conn, req.email):
         raise HTTPException(status_code=409, detail="Email already registered.")
 
     # Parse valid_until
@@ -1331,7 +1335,8 @@ async def admin_create_user(
     # Random unguessable placeholder — user must set their own password via the setup link
     placeholder_hash = hash_password(secrets.token_urlsafe(32))
     new_user = await create_user(conn, req.email, placeholder_hash,
-                                  req.name or req.email.split("@")[0])
+                                  req.name or req.username,
+                                  username=req.username)
     new_user = await update_user_role(conn, str(new_user["id"]), req.role)
     if valid_until or req.valid_until == "":
         new_user = await update_user_meta(conn, str(new_user["id"]),
