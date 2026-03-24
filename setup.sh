@@ -49,7 +49,12 @@ fi
 # ── Build & start ─────────────────────────────────────────────────────────────
 echo ""
 info "Building and starting containers (first run may take 2–3 min)..."
-docker compose up --build -d
+# Support both 'docker compose' (v2 plugin) and 'docker-compose' (standalone/Kali)
+if docker compose version >/dev/null 2>&1; then
+  docker compose up --build -d
+else
+  docker-compose up --build -d
+fi
 
 echo ""
 # Wait for backend health
