@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VANGUARD // CSPM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        /* ── Base surfaces (pure black) ── */
+        --bg:       #030304;
+        --surface:  #07080a;
+        --card:     #0c0d10;
+        --border:   #1c1c20;
+
+        /* ── Text ── */
+        --accent:   #f0e8c0;
+        --accent2:  #8a8070;
+        --accent3:  #4a4535;
+
+        /* ── Neon palette — electric yellow as primary ── */
+        --cyan:     #ffe600;   /* electric yellow = primary accent */
+        --magenta:  #ff3c00;   /* neon orange-red = danger / admin */
+        --green:    #39ff14;   /* neon green */
+        --yellow:   #ffe600;   /* alias */
+        --red:      #ff2255;
+        --orange:   #ff6b00;
+        --blue:     #00cfff;
+        --purple:   #bf5fff;
+
+        /* ── Glows ── */
+        --glow-cyan:    0 0 8px rgba(255,230,0,0.7),  0 0 24px rgba(255,230,0,0.25), 0 0 48px rgba(255,230,0,0.08);
+        --glow-magenta: 0 0 8px rgba(255,60,0,0.7),   0 0 24px rgba(255,60,0,0.25);
+        --glow-green:   0 0 8px rgba(57,255,20,0.7),  0 0 24px rgba(57,255,20,0.25);
+        --glow-red:     0 0 8px rgba(255,34,85,0.7),  0 0 24px rgba(255,34,85,0.25);
+
+        /* ── Fonts ── */
+        --font-display: 'Orbitron', sans-serif;
+        --font-ui:      'Rajdhani', sans-serif;
+        --font-mono:    'JetBrains Mono', monospace;
+      }
+
+      html, body, #root {
+        height: 100%;
+        background: var(--bg);
+        color: var(--accent);
+      }
+
+      body {
+        font-family: var(--font-ui);
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        /* Subtle yellow-tinted grid overlay */
+        background-image:
+          linear-gradient(rgba(255,230,0,0.018) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,230,0,0.018) 1px, transparent 1px);
+        background-size: 40px 40px;
+      }
+
+      /* ── Scrollbar ── */
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar-track { background: var(--bg); }
+      ::-webkit-scrollbar-thumb { background: rgba(255,230,0,0.5); border-radius: 2px; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--cyan); box-shadow: var(--glow-cyan); }
+
+      input, select, button { font-family: inherit; }
+      input::placeholder { color: var(--accent3); }
+
+      input:focus, select:focus {
+        outline: none !important;
+        border-color: var(--cyan) !important;
+        box-shadow: 0 0 0 1px rgba(255,230,0,0.25) !important;
+      }
+
+      /* ── Animations ── */
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes neonPulse {
+        0%, 100% { opacity: 1; text-shadow: var(--glow-cyan); }
+        50%       { opacity: 0.7; text-shadow: none; }
+      }
+
+      @keyframes scanDown {
+        0%   { transform: translateY(-100%); opacity: 0.6; }
+        100% { transform: translateY(100vh); opacity: 0; }
+      }
+
+      @keyframes glitch {
+        0%   { clip-path: inset(0 0 98% 0); transform: translate(-2px); }
+        10%  { clip-path: inset(30% 0 60% 0); transform: translate(2px); }
+        20%  { clip-path: inset(70% 0 10% 0); transform: translate(-1px); }
+        30%  { clip-path: inset(0 0 98% 0); transform: translate(0); }
+        100% { clip-path: inset(0 0 98% 0); transform: translate(0); }
+      }
+
+      @keyframes borderGlow {
+        0%, 100% { border-color: var(--cyan); box-shadow: var(--glow-cyan); }
+        50%       { border-color: rgba(255,230,0,0.3); box-shadow: none; }
+      }
+
+      @keyframes flicker {
+        0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+        20%, 24%, 55% { opacity: 0.3; }
+      }
+
+      @keyframes btnScan {
+        0%   { left: -100%; }
+        100% { left: 200%; }
+      }
+
+      @keyframes cornerBracket {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.4; }
+      }
+
+      @keyframes dataStream {
+        0%   { background-position: 0 0; }
+        100% { background-position: 0 100px; }
+      }
+
+      @keyframes slideInLeft {
+        from { opacity: 0; transform: translateX(-20px); }
+        to   { opacity: 1; transform: translateX(0); }
+      }
+
+      @keyframes pulseRing {
+        0%   { transform: scale(1);   opacity: 0.8; }
+        100% { transform: scale(2.2); opacity: 0; }
+      }
+
+      /* ── Neon button — animated scan sweep on hover ── */
+      .neon-btn {
+        position: relative;
+        overflow: hidden;
+        transition: box-shadow 0.2s, color 0.2s, border-color 0.2s;
+      }
+      .neon-btn::after {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 60%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,230,0,0.18), transparent);
+        transform: skewX(-20deg);
+        transition: none;
+      }
+      .neon-btn:hover {
+        box-shadow: var(--glow-cyan);
+        border-color: var(--cyan) !important;
+      }
+      .neon-btn:hover::after {
+        animation: btnScan 0.55s ease forwards;
+      }
+
+      /* ── Neon card corner brackets ── */
+      .neon-card {
+        position: relative;
+      }
+      .neon-card::before,
+      .neon-card::after {
+        content: '';
+        position: absolute;
+        width: 12px; height: 12px;
+        border-color: rgba(255,230,0,0.4);
+        border-style: solid;
+        animation: cornerBracket 3s ease-in-out infinite;
+      }
+      .neon-card::before {
+        top: -1px; left: -1px;
+        border-width: 2px 0 0 2px;
+      }
+      .neon-card::after {
+        bottom: -1px; right: -1px;
+        border-width: 0 2px 2px 0;
+      }
+
+      /* ── Pulse dot for status indicators ── */
+      .pulse-dot {
+        position: relative;
+        display: inline-block;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 6px rgba(57,255,20,0.8);
+      }
+      .pulse-dot::after {
+        content: '';
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        border-radius: 50%;
+        background: var(--green);
+        animation: pulseRing 1.8s ease-out infinite;
+      }
+
+      /* ── Light mode overrides ── */
+      [data-theme="light"] {
+        --bg:      #f0f0f5;
+        --surface: #e4e4ec;
+        --card:    #ffffff;
+        --border:  #d0d0dc;
+        --accent:  #1a1a2e;
+        --accent2: #4a4a6a;
+        --accent3: #7a7a9a;
+      }
+      [data-theme="light"] body {
+        background-image:
+          linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+      }
+
+      /* ── Sidebar nav button animated left border ── */
+      .nav-btn {
+        position: relative;
+        overflow: hidden;
+        transition: background 0.15s, color 0.15s;
+      }
+      .nav-btn.active::before {
+        content: '';
+        position: absolute;
+        left: 0; top: 0;
+        width: 2px; height: 100%;
+        background: var(--cyan);
+        box-shadow: 0 0 8px rgba(255,230,0,0.6);
+        animation: neonPulse 2s ease-in-out infinite;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

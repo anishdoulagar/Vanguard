@@ -1,0 +1,64 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: cspm_postgres
+    hostname: cspm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cspm_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+
+  backend:
+    build:
+      context: ./CSPM-Tool
+      dockerfile: Dockerfile
+    container_name: cspm_backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@cspm-db:5432/${POSTGRES_DB}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./CSPM-Tool:/app
+    networks:
+      - cspm_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./CSPM-Dashboard
+      dockerfile: Dockerfile
+    container_name: cspm_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./CSPM-Dashboard:/app
+      - /app/node_modules
+    networks:
+      - cspm_net
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+
+networks:
+  cspm_net:
+    driver: bridge
