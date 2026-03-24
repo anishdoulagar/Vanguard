@@ -1,22 +1,91 @@
-# Multi-Cloud CSPM
+<div align="center">
 
-A cloud-native **Cloud Security Posture Management** platform for AWS and Azure. Continuously scans your cloud accounts for misconfigurations, scores your security posture, and sends alerts when thresholds are breached.
+```
+ ██████╗███████╗██████╗ ███╗   ███╗
+██╔════╝██╔════╝██╔══██╗████╗ ████║
+██║     ███████╗██████╔╝██╔████╔██║
+██║     ╚════██║██╔═══╝ ██║╚██╔╝██║
+╚██████╗███████║██║     ██║ ╚═╝ ██║
+ ╚═════╝╚══════╝╚═╝     ╚═╝     ╚═╝
+```
+
+### Cloud Security Posture Management
+
+**Scan · Score · Alert · Remediate**
+
+[![AWS](https://img.shields.io/badge/AWS-Supported-FF9900?style=flat-square&logo=amazonaws&logoColor=white)](https://aws.amazon.com)
+[![Azure](https://img.shields.io/badge/Azure-Supported-0089D6?style=flat-square&logo=microsoftazure&logoColor=white)](https://azure.microsoft.com)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-Frontend-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
+
+</div>
 
 ---
 
-## Quick Start
+## What is CSPM?
 
-**Requirements:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) · Python 3 (for key generation)
+CSPM continuously scans your AWS and Azure environments for security misconfigurations, scores your posture on a 0–100 scale, and fires alerts the moment something falls below your threshold — before attackers find it first.
+
+```
+  Your Cloud Accounts          CSPM Engine               You
+  ─────────────────    →    ──────────────────    →    ──────
+  AWS · Azure               Scan → Score → Alert       Dashboard
+  Hundreds of resources     500+ built-in rules        Real-time findings
+  Any region                Custom rules support       Email alerts
+```
+
+---
+
+## ⚡ Quick Start
+
+> **Requirements:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) · Python 3
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-cd YOUR_REPO_NAME
+git clone https://github.com/anishdoulagar/cspm.git
+cd cspm
 ./setup.sh
 ```
 
-That's it. The dashboard opens at **http://localhost:5173**. The first account you register automatically becomes the superadmin.
+**That's it.** Dashboard is live at `http://localhost:5173`
 
-> **Windows:** run `python3 generate_keys.py` and then `docker compose up --build -d` manually instead of `./setup.sh`.
+> The first account you register is automatically promoted to **superadmin**.
+
+> **Windows users:** run `python3 generate_keys.py` then `docker compose up --build -d` instead of `./setup.sh`
+
+---
+
+## Features
+
+| | Feature | Description |
+|---|---|---|
+| 🔍 | **Multi-Cloud Scanning** | AWS and Azure with 500+ built-in security rules |
+| 📊 | **Security Scoring** | Per-service and overall posture score (0–100) |
+| 📈 | **Scan History** | Track posture over time, compare changes between scans |
+| 📤 | **Export Reports** | Download findings as CSV or JSON per scan |
+| ⚙️ | **Custom Rules** | Write your own compliance checks |
+| ⏱️ | **Scheduled Scanning** | Automatic background scans — set it and forget it |
+| 🔔 | **Smart Alerting** | System-wide alerts (superadmin) + per-user per-account alerts |
+| 🔐 | **Role-Based Access** | Four roles with fine-grained permissions |
+| 📋 | **Audit Log** | Every action logged with user, timestamp, and IP |
+
+---
+
+## Roles
+
+```
+SUPERADMIN  ──────────────────────────────────────────────────────  Full access
+   │         User management · System alerts · All accounts · All data
+   │
+ADMIN  ────────────────────────────────────────────────────────────  Team lead
+   │         All scans · All accounts · Configure per-account alerts
+   │
+ANALYST  ──────────────────────────────────────────────────────────  Operator
+   │         Run scans · Manage accounts · Configure own alerts
+   │
+VIEWER  ───────────────────────────────────────────────────────────  Read-only
+             View results · See alert status · No edits
+```
 
 ---
 
@@ -24,16 +93,16 @@ That's it. The dashboard opens at **http://localhost:5173**. The first account y
 
 ### Cloud Credentials
 
-Add your cloud credentials in the dashboard under **Settings → Cloud Accounts**. The scanner supports:
+Add credentials in the dashboard under **Accounts → Add Account**:
 
-| Cloud | Auth method |
-|-------|-------------|
-| AWS | Access Key ID + Secret Access Key (+ optional Session Token) |
-| Azure | Tenant ID + Client ID + Client Secret (Service Principal) |
+| Cloud | What you need |
+|-------|--------------|
+| **AWS** | Access Key ID + Secret Access Key |
+| **Azure** | Tenant ID + Client ID + Client Secret (Service Principal) |
 
-### Email Alerts (optional)
+### Email Alerts _(optional)_
 
-Edit `.env` and fill in the SMTP section. [Brevo](https://www.brevo.com) is recommended (free, 300 emails/day, no credit card):
+Edit `.env` with your SMTP provider. [Brevo](https://www.brevo.com) is recommended — free, 300 emails/day, no credit card:
 
 ```env
 SMTP_HOST=smtp-relay.brevo.com
@@ -45,60 +114,40 @@ SMTP_FROM=you@example.com
 
 ---
 
-## Roles
-
-| Role | Access |
-|------|--------|
-| **Superadmin** | Everything — user management, system-wide alert settings, all data |
-| **Admin** | All scans, all accounts, configure per-account alerts |
-| **Analyst** | Run scans, manage cloud accounts, configure own alerts |
-| **Viewer** | Read-only — view results, see alert status, no edits |
-
----
-
-## Features
-
-- **Multi-cloud scanning** — AWS and Azure with hundreds of built-in rules
-- **Security scoring** — per-service and overall posture score (0–100)
-- **Scan history** — view findings over time, compare changes between scans, export CSV/JSON
-- **Custom rules** — add your own compliance checks
-- **Scheduled scanning** — automatic background scans per account
-- **Alerting** — system-wide alerts (superadmin) and per-user per-account alerts (admin/analyst)
-- **Audit log** — every action is logged with user and timestamp
-- **Role-based access** — four roles with fine-grained permissions
-
----
-
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 18, Vite, Recharts |
-| Backend | FastAPI (Python), asyncio |
-| Database | PostgreSQL 16 |
-| Auth | JWT (HS256), bcrypt |
-| Infra | Docker Compose |
-| Cloud SDKs | boto3 (AWS), azure-sdk (Azure) |
+```
+┌─────────────────────────────────────────────────────────┐
+│  Frontend      React 18 · Vite · Recharts               │
+│  Backend       FastAPI · Python · asyncio               │
+│  Database      PostgreSQL 16                            │
+│  Auth          JWT (HS256) · bcrypt · Role middleware   │
+│  Infra         Docker · Docker Compose · Nginx          │
+│  Cloud SDKs    boto3 (AWS) · azure-sdk (Azure)         │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Day-to-Day Commands
+## Commands
 
 ```bash
+# First time setup
+./setup.sh
+
 # Start
 docker compose up -d
 
 # Stop
 docker compose down
 
-# View logs
+# View live logs
 docker logs cspm_backend -f
-docker logs cspm_frontend -f
 
-# Update after pulling new code
+# Rebuild after code changes
 docker compose up --build -d
 
-# Reset everything (WARNING: deletes all scan data)
+# ⚠️  Full reset (deletes all scan data)
 docker compose down -v
 ```
 
@@ -107,21 +156,29 @@ docker compose down -v
 ## Project Structure
 
 ```
-CSPM/
-├── CSPM-Tool/          # FastAPI backend + scanner engine
-│   ├── api/            # REST endpoints
-│   ├── auth/           # JWT, bcrypt, role middleware
-│   ├── connectors/     # AWS and Azure SDK collectors
-│   ├── database/       # PostgreSQL schema and models
-│   ├── policies/       # Built-in and custom rules
-│   ├── scheduler/      # Background scan engine
-│   └── scoring/        # Posture score calculator
-├── CSPM-Dashboard/     # React frontend
-│   └── src/
-│       ├── pages/      # Dashboard, History, Alerts, Policies, Admin
-│       └── components/ # Shared UI
-├── docker-compose.yml
-├── .env.example        # Copy to .env and fill in values
-├── generate_keys.py    # Auto-generates JWT_SECRET and CSPM_ENCRYPT_KEY
-└── setup.sh            # One-command setup
+cspm/
+├── CSPM-Tool/                  # Backend
+│   ├── api/server.py           # All REST endpoints
+│   ├── auth/                   # JWT · bcrypt · role guards
+│   ├── connectors/             # AWS + Azure SDK collectors
+│   ├── database/               # Schema · models · migrations
+│   ├── policies/               # 500+ built-in rules + custom rules
+│   ├── scheduler/              # Background scan engine
+│   └── scoring/                # Posture score algorithm
+│
+├── CSPM-Dashboard/             # Frontend
+│   └── src/pages/              # Dashboard · History · Alerts · Admin
+│
+├── docker-compose.yml          # Orchestration
+├── .env.example                # Environment template
+├── generate_keys.py            # Secret key generator
+└── setup.sh                    # One-command setup
 ```
+
+---
+
+<div align="center">
+
+Built for teams who take cloud security seriously.
+
+</div>
