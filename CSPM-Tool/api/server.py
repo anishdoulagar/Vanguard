@@ -40,6 +40,7 @@ from database.models import (
     get_system_alert_settings, upsert_system_alert_settings,
     log_action, get_audit_log,
     get_user_by_username,
+    create_invite_token, get_invite_token, mark_invite_used,
 )
 from auth.password     import hash_password, verify_password
 from auth.jwt_handler  import create_token
@@ -241,12 +242,15 @@ class ResetPasswordRequest(BaseModel):
 class UpdateRoleRequest(BaseModel):
     role: str
 
-class AdminCreateUserRequest(BaseModel):
-    name:        str
-    username:    str
+class AdminInviteRequest(BaseModel):
     email:       str
-    role:        str            = "analyst"
-    valid_until: Optional[str]  = None   # ISO date string, e.g. "2026-12-31"
+    role:        str           = "analyst"
+
+class AcceptInviteRequest(BaseModel):
+    token:    str
+    name:     str
+    username: str
+    password: str
 
 class PatchUserRequest(BaseModel):
     is_active:   Optional[bool] = None
@@ -1298,76 +1302,85 @@ async def admin_list_users(user=Depends(require_role("superadmin")), conn=Depend
     return {"users": await get_all_users(conn)}
 
 
-@app.post("/admin/users", status_code=201)
-async def admin_create_user(
-    req: AdminCreateUserRequest,
+@app.post("/admin/invite", status_code=201)
+async def admin_invite_user(
+    req: AdminInviteRequest,
     user=Depends(require_role("superadmin")),
     conn=Depends(get_conn),
 ):
     """
-    Create a new user with a specific role.
-    The superadmin never sets or sees the password — a secure random placeholder
-    is stored and a password-setup link is generated for the new user.
-    If SMTP is configured the link is emailed automatically; otherwise it is
-    returned once so the superadmin can share it manually.
+    Invite a new user by email. Sends a 72-hour invite link.
+    The invited user sets their own name, username, and password.
     """
     from auth.dependencies import ROLE_LEVEL
-    from notifications.email_engine import send_password_reset_email, is_email_configured
+    from notifications.email_engine import send_invite_email, is_email_configured
 
     if req.role not in ROLE_LEVEL:
         raise HTTPException(status_code=422,
             detail=f"Invalid role. Must be one of: {list(ROLE_LEVEL.keys())}")
-    if not req.username or len(req.username.strip()) < 3:
-        raise HTTPException(status_code=422, detail="Username must be at least 3 characters.")
-    if await get_user_by_username(conn, req.username):
-        raise HTTPException(status_code=409, detail="Username already taken.")
     if await get_user_by_email(conn, req.email):
         raise HTTPException(status_code=409, detail="Email already registered.")
 
-    # Parse valid_until
-    valid_until = None
-    if req.valid_until:
-        try:
-            valid_until = datetime.fromisoformat(req.valid_until).replace(tzinfo=timezone.utc)
-        except ValueError:
-            raise HTTPException(status_code=422, detail="Invalid valid_until date format.")
-
-    # Random unguessable placeholder — user must set their own password via the setup link
-    placeholder_hash = hash_password(secrets.token_urlsafe(32))
-    new_user = await create_user(conn, req.email, placeholder_hash,
-                                  req.name or req.username,
-                                  username=req.username)
-    new_user = await update_user_role(conn, str(new_user["id"]), req.role)
-    if valid_until or req.valid_until == "":
-        new_user = await update_user_meta(conn, str(new_user["id"]),
-                                           new_user["is_active"], valid_until)
-
-    # Generate a password-setup link (same mechanism as forgot-password)
-    setup_token = secrets.token_urlsafe(32)
-    expires_at  = datetime.now(timezone.utc) + timedelta(hours=72)  # 3-day window for first login
-    await create_reset_token(conn, str(new_user["id"]), setup_token, expires_at)
+    token      = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=72)
+    await create_invite_token(conn, req.email, req.role, token, expires_at, str(user["id"]))
 
     frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
-    setup_url    = f"{frontend_url}?reset_token={setup_token}"
+    invite_url   = f"{frontend_url}?invite_token={token}"
 
     email_sent = False
     if is_email_configured():
-        email_sent = send_password_reset_email(req.email, setup_url)
+        email_sent = send_invite_email(req.email, req.role, invite_url)
 
     return {
-        "user": {
-            "id":          str(new_user["id"]),
-            "email":       new_user["email"],
-            "name":        new_user["name"],
-            "role":        new_user["role"],
-            "is_active":   new_user["is_active"],
-            "valid_until": new_user["valid_until"].isoformat() if new_user.get("valid_until") else None,
-            "created_at":  new_user["created_at"].isoformat(),
-        },
-        # setup_url returned only when email could not be sent — show once, never stored
-        "setup_url":  None if email_sent else setup_url,
+        "email":      req.email,
+        "role":       req.role,
+        "invite_url": None if email_sent else invite_url,
         "email_sent": email_sent,
     }
+
+
+@app.get("/invite/{token}")
+async def validate_invite(token: str, conn=Depends(get_conn)):
+    """Public endpoint — returns email + role if token is valid and unused."""
+    row = await get_invite_token(conn, token)
+    if not row:
+        raise HTTPException(status_code=404, detail="Invite token not found or already used.")
+    if row["expires_at"] < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Invite token has expired.")
+    return {"email": row["email"], "role": row["role"]}
+
+
+@app.post("/auth/accept-invite", status_code=201)
+async def accept_invite(req: AcceptInviteRequest, conn=Depends(get_conn)):
+    """
+    Complete an invitation: creates the user account and returns a JWT.
+    """
+    row = await get_invite_token(conn, req.token)
+    if not row:
+        raise HTTPException(status_code=404, detail="Invite token not found or already used.")
+    if row["expires_at"] < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Invite token has expired.")
+
+    if not req.username or len(req.username.strip()) < 3:
+        raise HTTPException(status_code=422, detail="Username must be at least 3 characters.")
+    if not req.name or len(req.name.strip()) < 1:
+        raise HTTPException(status_code=422, detail="Name is required.")
+    if len(req.password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
+    if await get_user_by_username(conn, req.username):
+        raise HTTPException(status_code=409, detail="Username already taken.")
+    if await get_user_by_email(conn, row["email"]):
+        raise HTTPException(status_code=409, detail="Email already registered.")
+
+    pw_hash  = hash_password(req.password)
+    new_user = await create_user(conn, row["email"], pw_hash, req.name.strip(),
+                                  username=req.username.strip())
+    new_user = await update_user_role(conn, str(new_user["id"]), row["role"])
+    await mark_invite_used(conn, req.token)
+
+    token_jwt = create_token({"sub": str(new_user["id"])})
+    return _user_response(new_user, token_jwt)
 
 
 @app.patch("/admin/users/{target_user_id}")

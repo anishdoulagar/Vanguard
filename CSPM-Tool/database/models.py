@@ -112,6 +112,35 @@ async def update_user_password(conn, user_id: str, password_hash: str) -> None:
     )
 
 
+# ── Invite Tokens ──────────────────────────────────────────────────────────────
+
+async def create_invite_token(conn, email: str, role: str, token: str, expires_at, created_by: str) -> dict:
+    row = await conn.fetchrow(
+        """
+        INSERT INTO invite_tokens (email, role, token, expires_at, created_by)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, email, role, token, expires_at, used, created_at
+        """,
+        email.lower().strip(), role, token, expires_at, created_by
+    )
+    return dict(row)
+
+
+async def get_invite_token(conn, token: str) -> Optional[dict]:
+    row = await conn.fetchrow(
+        "SELECT * FROM invite_tokens WHERE token = $1",
+        token
+    )
+    return dict(row) if row else None
+
+
+async def mark_invite_used(conn, token: str) -> None:
+    await conn.execute(
+        "UPDATE invite_tokens SET used = true WHERE token = $1",
+        token
+    )
+
+
 # ── Password Reset Tokens ──────────────────────────────────────────────────────
 
 async def create_reset_token(conn, user_id: str, token: str, expires_at) -> dict:

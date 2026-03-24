@@ -289,23 +289,40 @@ function TextField({ label, type = "text", placeholder, value, onChange }) {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-export default function AuthPage({ onAuth, initialResetToken = null }) {
-  // tab: "login" | "signup" | "forgot" | "reset"
-  const [tab,        setTab]        = useState(initialResetToken ? "reset" : "login");
-  const [name,       setName]       = useState("");
-  const [username,   setUsername]   = useState("");
-  const [email,      setEmail]      = useState("");
-  const [password,   setPassword]   = useState("");
-  const [resetPw,    setResetPw]    = useState("");
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState(null);
-  const [success,    setSuccess]    = useState(null);
-  const [resetToken, setResetToken] = useState(initialResetToken || "");
+export default function AuthPage({ onAuth, initialResetToken = null, initialInviteToken = null }) {
+  // tab: "login" | "forgot" | "reset" | "invite"
+  const initialTab = initialInviteToken ? "invite" : initialResetToken ? "reset" : "login";
+  const [tab,         setTab]         = useState(initialTab);
+  const [name,        setName]        = useState("");
+  const [username,    setUsername]    = useState("");
+  const [email,       setEmail]       = useState("");
+  const [password,    setPassword]    = useState("");
+  const [resetPw,     setResetPw]     = useState("");
+  const [invitePw,    setInvitePw]    = useState("");
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState(null);
+  const [success,     setSuccess]     = useState(null);
+  const [resetToken,  setResetToken]  = useState(initialResetToken || "");
+  const [inviteToken, setInviteToken] = useState(initialInviteToken || "");
+  const [inviteInfo,  setInviteInfo]  = useState(null); // { email, role } from /invite/:token
+
+  // Validate invite token on mount
+  useEffect(() => {
+    if (initialInviteToken) {
+      fetch(`${API}/invite/${initialInviteToken}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.email) setInviteInfo({ email: d.email, role: d.role });
+          else setError("This invite link is invalid or has expired.");
+        })
+        .catch(() => setError("Unable to validate invite link."));
+    }
+  }, []);
 
   function switchTab(t) {
     setTab(t);
     setError(null); setSuccess(null);
-    setName(""); setUsername(""); setEmail(""); setPassword(""); setResetPw("");
+    setName(""); setUsername(""); setEmail(""); setPassword(""); setResetPw(""); setInvitePw("");
   }
 
   function handleKeyDown(e) {
@@ -316,9 +333,9 @@ export default function AuthPage({ onAuth, initialResetToken = null }) {
     setError(null); setSuccess(null);
 
     if (tab === "login")  return handleLogin();
-    if (tab === "signup") return handleSignup();
     if (tab === "forgot") return handleForgot();
     if (tab === "reset")  return handleReset();
+    if (tab === "invite") return handleAcceptInvite();
   }
 
   async function handleLogin() {
@@ -382,6 +399,24 @@ export default function AuthPage({ onAuth, initialResetToken = null }) {
       if (!res.ok) { setError(data.detail || "Reset failed."); return; }
       setSuccess("Password updated! You can now sign in with your new password.");
       setTimeout(() => switchTab("login"), 2500);
+    } catch { setError("Unable to connect. Please try again."); }
+    finally  { setLoading(false); }
+  }
+
+  async function handleAcceptInvite() {
+    if (!name || !username || !invitePw) { setError("All fields are required."); return; }
+    if (username.length < 3) { setError("Username must be at least 3 characters."); return; }
+    if (invitePw.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (!inviteToken) { setError("Missing invite token."); return; }
+    setLoading(true);
+    try {
+      const res  = await fetch(`${API}/auth/accept-invite`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: inviteToken, name, username, password: invitePw }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.detail || "Could not complete signup."); return; }
+      onAuth(data.token, data.user);
     } catch { setError("Unable to connect. Please try again."); }
     finally  { setLoading(false); }
   }
@@ -497,9 +532,40 @@ export default function AuthPage({ onAuth, initialResetToken = null }) {
     );
   }
 
+  function renderInviteForm() {
+    return (
+      <div style={S.form} onKeyDown={handleKeyDown}>
+        {inviteInfo ? (
+          <div style={{
+            padding: "10px 14px", borderRadius: 7, marginBottom: 20,
+            background: "rgba(255,230,0,0.05)", border: "1px solid rgba(255,230,0,0.2)",
+            fontFamily: "var(--font-ui)", fontSize: 12, color: "rgba(255,230,0,0.7)", lineHeight: 1.6,
+          }}>
+            You've been invited as <strong style={{ color: "#ffe600" }}>{inviteInfo.role.toUpperCase()}</strong> for{" "}
+            <strong style={{ color: "var(--accent)" }}>{inviteInfo.email}</strong>.
+            Set up your account below.
+          </div>
+        ) : null}
+
+        <TextField label="Full Name" placeholder="Your name"
+                   value={name} onChange={setName} />
+        <TextField label="Username" placeholder="choose a username"
+                   value={username} onChange={setUsername} />
+        <PasswordField label="Password" value={invitePw} onChange={setInvitePw} showStrength />
+
+        {error   && <div style={S.error}>{error}</div>}
+        {success && <div style={S.success}>{success}</div>}
+
+        <button onClick={handleSubmit} disabled={loading} className="neon-btn" style={S.btn(loading)}>
+          {loading ? "CREATING ACCOUNT..." : "COMPLETE SETUP →"}
+        </button>
+      </div>
+    );
+  }
+
   // ── Layout ──────────────────────────────────────────────────────────────────
 
-  const isForgotOrReset = tab === "forgot" || tab === "reset";
+  const isForgotOrReset = tab === "forgot" || tab === "reset" || tab === "invite";
 
   return (
     <div style={S.page}>
@@ -570,6 +636,7 @@ export default function AuthPage({ onAuth, initialResetToken = null }) {
           <div style={S.logoSub}>
             {tab === "forgot" ? "// PASSWORD RECOVERY" :
              tab === "reset"  ? "// SET NEW PASSWORD"  :
+             tab === "invite" ? "// ACCOUNT SETUP"     :
              "// CLOUD SECURITY POSTURE MANAGEMENT"}
           </div>
         </div>
@@ -590,7 +657,7 @@ export default function AuthPage({ onAuth, initialResetToken = null }) {
             }}>Sign In</div>
           )}
 
-          {/* Forgot / Reset header */}
+          {/* Forgot / Reset / Invite header */}
           {isForgotOrReset && (
             <div style={{
               padding: "16px 28px",
@@ -600,7 +667,9 @@ export default function AuthPage({ onAuth, initialResetToken = null }) {
               borderBottom: "1px solid rgba(0,212,255,0.15)",
               textShadow: "0 0 8px rgba(0,212,255,0.5)",
             }}>
-              {tab === "forgot" ? "Reset Password" : "New Password"}
+              {tab === "forgot" ? "Reset Password" :
+               tab === "invite" ? "Complete Invitation" :
+               "New Password"}
             </div>
           )}
 
@@ -608,6 +677,7 @@ export default function AuthPage({ onAuth, initialResetToken = null }) {
           {tab === "login"  && renderLoginForm()}
           {tab === "forgot" && renderForgotForm()}
           {tab === "reset"  && renderResetForm()}
+          {tab === "invite" && renderInviteForm()}
 
         </div>
       </div>

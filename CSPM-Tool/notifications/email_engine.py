@@ -188,6 +188,39 @@ def send_password_reset_email(to_email: str, reset_url: str) -> bool:
     return send_alert_email(to_email, subject, html)
 
 
+def send_invite_email(to_email: str, role: str, invite_url: str) -> bool:
+    subject = "[Vanguard] You've been invited"
+    html = f"""
+<!DOCTYPE html><html><body style="background:#111214;color:#e8e8e8;
+  font-family:'Segoe UI',sans-serif;margin:0;padding:40px">
+  <div style="max-width:520px;margin:0 auto">
+    <h1 style="font-size:20px;letter-spacing:0.05em;margin-bottom:4px">VANGUARD</h1>
+    <p style="color:#606068;font-size:13px;margin-top:0">// MULTI-CLOUD SECURITY POSTURE MANAGEMENT</p>
+
+    <div style="background:#1e2026;border-radius:10px;padding:28px;
+                margin:24px 0;border-left:4px solid #ffe600">
+      <p style="margin:0 0 12px;font-size:14px;color:#e8e8e8">
+        You've been invited to join <strong>Vanguard</strong> as a
+        <strong style="color:#ffe600">{role.upper()}</strong>.
+      </p>
+      <p style="margin:0 0 20px;font-size:13px;color:#a0a0a8">
+        Click the button below to set up your account. This invitation expires in <strong>72 hours</strong>.
+      </p>
+      <a href="{invite_url}" style="display:inline-block;padding:12px 28px;
+         background:#ffe600;color:#111214;text-decoration:none;border-radius:6px;
+         font-weight:700;font-size:13px;letter-spacing:0.06em">
+        ACCEPT INVITATION
+      </a>
+    </div>
+
+    <p style="color:#606068;font-size:11px;margin-top:24px">
+      If you weren't expecting this invitation, you can safely ignore this email.
+    </p>
+  </div>
+</body></html>"""
+    return send_alert_email(to_email, subject, html)
+
+
 def build_alert_email(account_name: str, cloud: str, score: int,
                        threshold: int, findings: list) -> tuple[str, str]:
     """

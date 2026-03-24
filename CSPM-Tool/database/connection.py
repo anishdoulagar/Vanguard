@@ -102,6 +102,19 @@ UPDATE users SET role = 'superadmin' WHERE is_admin = true AND role = 'analyst';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;
 
+-- Invitation tokens (superadmin invites users by email)
+CREATE TABLE IF NOT EXISTS invite_tokens (
+    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    email      TEXT        NOT NULL,
+    role       TEXT        NOT NULL DEFAULT 'analyst',
+    token      TEXT        UNIQUE NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used       BOOLEAN     NOT NULL DEFAULT false,
+    created_by UUID        REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_invite_tokens_token ON invite_tokens(token);
+
 -- Password reset tokens
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),

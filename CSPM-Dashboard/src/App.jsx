@@ -117,11 +117,17 @@ function clearSession() {
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// Read ?reset_token= from URL on initial load
+// Read ?reset_token= or ?invite_token= from URL on initial load
 function getResetTokenFromUrl() {
   try {
     const params = new URLSearchParams(window.location.search);
     return params.get("reset_token") || null;
+  } catch { return null; }
+}
+function getInviteTokenFromUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("invite_token") || null;
   } catch { return null; }
 }
 
@@ -129,7 +135,8 @@ export default function App() {
   const saved = loadSession();
   const [token, setToken] = useState(saved?.token || null);
   const [user,  setUser]  = useState(saved?.user  || null);
-  const [initialResetToken] = useState(getResetTokenFromUrl);
+  const [initialResetToken]  = useState(getResetTokenFromUrl);
+  const [initialInviteToken] = useState(getInviteTokenFromUrl);
 
   // null = checking, true = needs setup, false = has users
   const [needsSetup, setNeedsSetup] = useState(null);
@@ -206,7 +213,7 @@ export default function App() {
 
   // Not logged in
   if (!token || !user) return (
-    <AuthPage onAuth={handleAuth} initialResetToken={initialResetToken} />
+    <AuthPage onAuth={handleAuth} initialResetToken={initialResetToken} initialInviteToken={initialInviteToken} />
   );
 
   function renderPage() {

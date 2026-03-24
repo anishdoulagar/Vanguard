@@ -1,6 +1,6 @@
 /**
  * UsersPage — superadmin user management.
- * Create users (no password — setup link generated), change roles,
+ * Invite users by email (they set their own credentials), change roles,
  * disable/enable, set expiry, delete.
  */
 import { useState, useEffect } from "react";
@@ -38,32 +38,27 @@ function isExpired(valid_until) {
   return new Date(valid_until) < new Date();
 }
 
-// ── Create User Modal ─────────────────────────────────────────────────────────
+// ── Invite User Modal ─────────────────────────────────────────────────────────
 
-function CreateUserModal({ token, onCreated, onClose }) {
-  const [name,       setName]       = useState("");
-  const [username,   setUsername]   = useState("");
-  const [email,      setEmail]      = useState("");
-  const [role,       setRole]       = useState("analyst");
-  const [validUntil, setValidUntil] = useState("");
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState(null);
-  const [result,     setResult]     = useState(null); // after creation
+function InviteUserModal({ token, onClose }) {
+  const [email,   setEmail]   = useState("");
+  const [role,    setRole]    = useState("analyst");
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(null);
+  const [result,  setResult]  = useState(null);
 
-  async function handleCreate() {
-    if (!name || !username || !email) { setError("Name, username, and email are required."); return; }
-    if (username.length < 3) { setError("Username must be at least 3 characters."); return; }
+  async function handleInvite() {
+    if (!email) { setError("Email is required."); return; }
     setLoading(true); setError(null);
     try {
-      const res  = await fetch(`${API}/admin/users`, {
+      const res  = await fetch(`${API}/admin/invite`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ name, username, email, role, valid_until: validUntil || null }),
+        body: JSON.stringify({ email, role }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.detail || "Failed to create user."); return; }
+      if (!res.ok) { setError(data.detail || "Failed to send invite."); return; }
       setResult(data);
-      onCreated(data.user);
     } catch { setError("Network error."); }
     finally  { setLoading(false); }
   }
@@ -86,7 +81,7 @@ function CreateUserModal({ token, onCreated, onClose }) {
       display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
     }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{
-        width: "100%", maxWidth: 460,
+        width: "100%", maxWidth: 440,
         background: "var(--surface)", border: "1px solid var(--border)",
         borderRadius: 12, boxShadow: "0 24px 64px rgba(0,0,0,0.5)", overflow: "hidden",
       }}>
@@ -96,7 +91,7 @@ function CreateUserModal({ token, onCreated, onClose }) {
           padding: "18px 24px", borderBottom: "1px solid var(--border)",
         }}>
           <div style={{ fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 14, color: "var(--accent)" }}>
-            Create New User
+            Invite User
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent3)", display: "flex" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -106,7 +101,6 @@ function CreateUserModal({ token, onCreated, onClose }) {
         </div>
 
         <div style={{ padding: 24 }}>
-          {/* After creation — show setup link */}
           {result ? (
             <div>
               <div style={{
@@ -118,7 +112,7 @@ function CreateUserModal({ token, onCreated, onClose }) {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                User <strong>{result.user.name}</strong> created as <RoleBadge role={result.user.role} />
+                Invite sent for <strong>{result.email}</strong> as <RoleBadge role={result.role} />
               </div>
 
               {result.email_sent ? (
@@ -127,8 +121,8 @@ function CreateUserModal({ token, onCreated, onClose }) {
                   background: "rgba(123,140,222,0.08)", border: "1px solid rgba(123,140,222,0.25)",
                   fontFamily: "var(--font-ui)", fontSize: 13, color: "var(--accent3)", lineHeight: 1.6,
                 }}>
-                  A password setup link was sent to <strong style={{ color: "var(--accent)" }}>{result.user.email}</strong>.
-                  The user must set their own password before logging in.
+                  An invitation email was sent to <strong style={{ color: "var(--accent)" }}>{result.email}</strong>.
+                  The link expires in 72 hours. The user will set their own name, username, and password.
                 </div>
               ) : (
                 <div>
@@ -137,14 +131,14 @@ function CreateUserModal({ token, onCreated, onClose }) {
                     background: "rgba(217,123,58,0.08)", border: "1px solid rgba(217,123,58,0.25)",
                     fontFamily: "var(--font-ui)", fontSize: 12, color: "#d97b3a", lineHeight: 1.6,
                   }}>
-                    SMTP is not configured — share this one-time setup link with the user manually.
+                    SMTP is not configured — share this one-time invite link manually.
                     It expires in 72 hours. <strong>You will not see this again.</strong>
                   </div>
                   <div style={{ marginBottom: 16 }}>
-                    <label style={lbl}>One-time Setup Link</label>
+                    <label style={lbl}>Invite Link</label>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <input readOnly value={result.setup_url} style={{ ...inp, flex: 1, fontSize: 11, color: "var(--accent3)" }} />
-                      <button onClick={() => navigator.clipboard.writeText(result.setup_url)} style={{
+                      <input readOnly value={result.invite_url} style={{ ...inp, flex: 1, fontSize: 11, color: "var(--accent3)" }} />
+                      <button onClick={() => navigator.clipboard.writeText(result.invite_url)} style={{
                         padding: "9px 14px", borderRadius: 7, border: "1px solid var(--border)",
                         background: "var(--card)", color: "var(--accent)", cursor: "pointer",
                         fontFamily: "var(--font-ui)", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap",
@@ -163,36 +157,27 @@ function CreateUserModal({ token, onCreated, onClose }) {
             </div>
           ) : (
             <>
-              {/* Security note */}
               <div style={{
                 padding: "10px 14px", borderRadius: 7, marginBottom: 20,
                 background: "rgba(123,140,222,0.06)", border: "1px solid rgba(123,140,222,0.2)",
                 fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--accent3)", lineHeight: 1.6,
               }}>
-                No password is set by you — a secure setup link will be generated for the user to set their own password.
+                The invited user will receive a link to set up their own name, username, and password.
+                The link expires in 72 hours.
               </div>
 
-              <div style={{ marginBottom: 16 }}>
-                <label style={lbl}>Full Name</label>
-                <input type="text" placeholder="Jane Smith" value={name}
-                       onChange={e => setName(e.target.value)} style={inp} />
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={lbl}>Username</label>
-                <input type="text" placeholder="janesmith" value={username}
-                       onChange={e => setUsername(e.target.value)} style={inp} />
-              </div>
               <div style={{ marginBottom: 16 }}>
                 <label style={lbl}>Email Address</label>
                 <input type="email" placeholder="jane@example.com" value={email}
-                       onChange={e => setEmail(e.target.value)} style={inp} />
+                       onChange={e => setEmail(e.target.value)}
+                       onKeyDown={e => e.key === "Enter" && handleInvite()}
+                       style={inp} />
               </div>
 
-              {/* Role picker */}
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 20 }}>
                 <label style={lbl}>Role</label>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {ROLES.map(r => {
+                  {ROLES.filter(r => r !== "superadmin").map(r => {
                     const m = ROLE_META[r]; const sel = role === r;
                     return (
                       <button key={r} onClick={() => setRole(r)} style={{
@@ -211,17 +196,6 @@ function CreateUserModal({ token, onCreated, onClose }) {
                 </div>
               </div>
 
-              {/* Valid until */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={lbl}>Access Expires (optional)</label>
-                <input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)}
-                       min={new Date().toISOString().split("T")[0]}
-                       style={{ ...inp, colorScheme: "dark" }} />
-                <div style={{ marginTop: 5, fontSize: 11, color: "var(--accent3)", fontFamily: "var(--font-ui)" }}>
-                  Leave blank for permanent access.
-                </div>
-              </div>
-
               {error && (
                 <div style={{
                   padding: "8px 12px", borderRadius: 6, marginBottom: 14,
@@ -236,14 +210,14 @@ function CreateUserModal({ token, onCreated, onClose }) {
                   background: "transparent", border: "1px solid var(--border)",
                   color: "var(--accent3)", fontFamily: "var(--font-ui)", fontWeight: 600, fontSize: 12,
                 }}>Cancel</button>
-                <button onClick={handleCreate} disabled={loading} style={{
+                <button onClick={handleInvite} disabled={loading} style={{
                   flex: 2, padding: 10, borderRadius: 6, cursor: loading ? "not-allowed" : "pointer",
                   background: loading ? "rgba(123,140,222,0.4)" : "#7b8cde",
                   border: "none", color: "#111214",
                   fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
                   letterSpacing: "0.08em", textTransform: "uppercase",
                 }}>
-                  {loading ? "Creating..." : "Create User →"}
+                  {loading ? "Sending..." : "Send Invite →"}
                 </button>
               </div>
             </>
@@ -331,7 +305,7 @@ export default function UsersPage({ token, currentUser }) {
   const [users,       setUsers]       = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
-  const [showCreate,  setShowCreate]  = useState(false);
+  const [showInvite,  setShowInvite]  = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   // per-row state
@@ -411,15 +385,6 @@ export default function UsersPage({ token, currentUser }) {
     } catch {} finally { setRow(u.id, { metaUpdating: false }); }
   }
 
-  function onUserCreated(newUser) {
-    setUsers(us => [{ ...newUser, account_count: 0, scan_count: 0 }, ...us]);
-    setRowState(s => ({
-      ...s,
-      [newUser.id]: { selectedRole: newUser.role, validUntil: "", updating: false, roleSuccess: "Created!", roleError: null, metaUpdating: false },
-    }));
-    setTimeout(() => setRowState(s => ({ ...s, [newUser.id]: { ...s[newUser.id], roleSuccess: null } })), 4000);
-  }
-
   function onUserDeleted(id) {
     setDeleteTarget(null);
     setUsers(us => us.filter(u => u.id !== id));
@@ -437,7 +402,7 @@ export default function UsersPage({ token, currentUser }) {
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1100 }}>
 
-      {showCreate  && <CreateUserModal token={token} onCreated={onUserCreated} onClose={() => setShowCreate(false)} />}
+      {showInvite && <InviteUserModal token={token} onClose={() => setShowInvite(false)} />}
       {deleteTarget && <DeleteConfirmModal user={deleteTarget} token={token} onDeleted={onUserDeleted} onClose={() => setDeleteTarget(null)} />}
 
       {/* Header */}
@@ -454,10 +419,10 @@ export default function UsersPage({ token, currentUser }) {
             </h1>
           </div>
           <p style={{ color: "var(--accent3)", fontSize: 13, fontFamily: "var(--font-ui)", margin: 0 }}>
-            {users.length} user{users.length !== 1 ? "s" : ""} — passwords are never visible to admins
+            {users.length} user{users.length !== 1 ? "s" : ""} — invite users by email, they set their own credentials
           </p>
         </div>
-        <button onClick={() => setShowCreate(true)} style={{
+        <button onClick={() => setShowInvite(true)} style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "9px 18px", borderRadius: 7, cursor: "pointer",
           background: "rgba(123,140,222,0.15)", border: "1px solid rgba(123,140,222,0.4)",
@@ -470,7 +435,7 @@ export default function UsersPage({ token, currentUser }) {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-          Create User
+          Invite User
         </button>
       </div>
 
