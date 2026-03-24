@@ -85,6 +85,73 @@ cd Vanguard
 
 Dashboard is live at `http://localhost:5173`. The first account you create becomes superadmin.
 
+**Day-to-day commands:**
+```bash
+# Start
+docker compose up -d
+
+# Stop
+docker compose down
+
+# View logs
+docker compose logs -f backend
+
+# Full reset (wipes all data)
+docker compose down -v
+```
+
+---
+
+### Mac — without Docker
+
+**1. Install dependencies**
+```bash
+brew install postgresql@16 node python3 git
+brew services start postgresql@16
+```
+
+**2. Set up PostgreSQL**
+```bash
+psql postgres -c "CREATE USER cspm_user WITH PASSWORD 'changeme_strong_password';"
+psql postgres -c "CREATE DATABASE cspm OWNER cspm_user;"
+```
+
+**3. Clone the repo**
+```bash
+git clone https://github.com/anishdoulagar/Vanguard.git
+cd Vanguard
+```
+
+**4. Configure environment**
+```bash
+cp .env.example .env
+python3 generate_keys.py
+```
+Open `.env` and add:
+```env
+DATABASE_URL=postgresql://cspm_user:changeme_strong_password@localhost:5432/cspm
+```
+
+**5. Start the backend** _(terminal 1)_
+```bash
+cd CSPM-Tool
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**6. Start the frontend** _(terminal 2)_
+```bash
+cd CSPM-Dashboard
+npm install
+npm run dev -- --host
+```
+
+Dashboard is live at `http://localhost:5173`.
+
+> **Every reboot:** run `brew services start postgresql@16` before starting the project.
+
 ---
 
 ### Linux / Kali — with Docker
@@ -218,6 +285,58 @@ docker compose down -v
 ```
 
 > Docker Desktop must be running before you use any `docker compose` command on Windows.
+
+---
+
+### Windows — without Docker
+
+**1. Install prerequisites**
+- [PostgreSQL](https://www.postgresql.org/download/windows/) — remember the password you set for the `postgres` user
+- [Node.js 20+](https://nodejs.org/en/download)
+- [Python 3](https://www.python.org/downloads/) — check "Add to PATH" during install
+- [Git for Windows](https://git-scm.com/download/win)
+
+**2. Set up PostgreSQL** _(in PowerShell)_
+```powershell
+psql -U postgres -c "CREATE USER cspm_user WITH PASSWORD 'changeme_strong_password';"
+psql -U postgres -c "CREATE DATABASE cspm OWNER cspm_user;"
+```
+
+**3. Clone the repo**
+```powershell
+git clone https://github.com/anishdoulagar/Vanguard.git
+cd Vanguard
+```
+
+**4. Configure environment**
+```powershell
+copy .env.example .env
+python generate_keys.py
+```
+Open `.env` in Notepad and add:
+```env
+DATABASE_URL=postgresql://cspm_user:changeme_strong_password@localhost:5432/cspm
+```
+
+**5. Start the backend** _(terminal 1)_
+```powershell
+cd CSPM-Tool
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**6. Start the frontend** _(terminal 2)_
+```powershell
+cd CSPM-Dashboard
+npm install
+npm run dev -- --host
+```
+
+Dashboard is live at `http://localhost:5173`.
+
+> **Every reboot:** PostgreSQL runs as a Windows service automatically. Just re-run the backend and frontend commands.
 
 ---
 
