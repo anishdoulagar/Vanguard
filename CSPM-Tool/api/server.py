@@ -941,7 +941,12 @@ async def scan_all_accounts(
         cloud      = account["cloud"]
         async with semaphore:
             try:
-                creds  = decrypt_credentials(account["encrypted_creds"])
+                # get_accounts_for_user doesn't include encrypted_creds — fetch full record
+                async with pool.acquire() as c:
+                    full_account = await get_account_with_creds(c, account_id)
+                if not full_account:
+                    raise ValueError("Account not found")
+                creds  = decrypt_credentials(full_account["encrypted_creds"])
                 result = await _run_scan_engine(
                     cloud=cloud,
                     aws_creds=creds   if cloud == "aws"   else None,
