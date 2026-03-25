@@ -8,6 +8,7 @@ import json
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError, EndpointConnectionError
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class AWSConnector:
@@ -40,47 +41,56 @@ class AWSConnector:
             raise ConnectionError(f"AWS authentication failed: {e}")
 
     def collect_all(self) -> dict:
-        """Collect all resource data. Returns raw dict of lists."""
-        return {
-            "region":                self.region,
-            "iam_summary":           self._collect_iam_summary(),
-            "iam_users":             self._collect_iam_users(),
-            "iam_roles":             self._collect_iam_roles(),
-            "s3_buckets":            self._collect_s3_buckets(),
-            "ec2_instances":         self._collect_ec2_instances(),
-            "security_groups":       self._collect_security_groups(),
-            "ebs_volumes":           self._collect_ebs_volumes(),
-            "vpcs":                  self._collect_vpcs(),
-            "cloudtrails":           self._collect_cloudtrails(),
-            "rds_instances":         self._collect_rds_instances(),
-            "lambda_functions":      self._collect_lambda_functions(),
-            "cloudfront_dists":      self._collect_cloudfront(),
-            "kms_keys":              self._collect_kms_keys(),
-            "sns_topics":            self._collect_sns_topics(),
-            "sqs_queues":            self._collect_sqs_queues(),
-            "eks_clusters":          self._collect_eks_clusters(),
-            "ecr_repositories":      self._collect_ecr_repositories(),
-            "secrets":               self._collect_secrets_manager(),
-            "config_recorders":      self._collect_config(),
-            "guardduty_detectors":   self._collect_guardduty(),
-            "elasticache_clusters":  self._collect_elasticache(),
-            "dynamodb_tables":       self._collect_dynamodb(),
-            "load_balancers":        self._collect_load_balancers(),
-            "api_gateways":          self._collect_api_gateways(),
-            # New services
-            "redshift_clusters":       self._collect_redshift(),
-            "elasticsearch_domains":   self._collect_elasticsearch(),
-            "waf_web_acls":            self._collect_waf(),
-            "cognito_user_pools":      self._collect_cognito(),
-            "ssm_parameters":          self._collect_ssm_parameters(),
-            "acm_certificates":        self._collect_acm_certificates(),
-            "route53_zones":           self._collect_route53(),
-            "ecs_task_definitions":    self._collect_ecs(),
-            "kinesis_streams":         self._collect_kinesis(),
-            "ses_identities":          self._collect_ses(),
-            "macie_status":            self._collect_macie(),
-            "inspector_status":        self._collect_inspector(),
+        """Collect all resource data in parallel. Returns raw dict of lists."""
+        collectors = {
+            "iam_summary":             self._collect_iam_summary,
+            "iam_users":               self._collect_iam_users,
+            "iam_roles":               self._collect_iam_roles,
+            "s3_buckets":              self._collect_s3_buckets,
+            "ec2_instances":           self._collect_ec2_instances,
+            "security_groups":         self._collect_security_groups,
+            "ebs_volumes":             self._collect_ebs_volumes,
+            "vpcs":                    self._collect_vpcs,
+            "cloudtrails":             self._collect_cloudtrails,
+            "rds_instances":           self._collect_rds_instances,
+            "lambda_functions":        self._collect_lambda_functions,
+            "cloudfront_dists":        self._collect_cloudfront,
+            "kms_keys":                self._collect_kms_keys,
+            "sns_topics":              self._collect_sns_topics,
+            "sqs_queues":              self._collect_sqs_queues,
+            "eks_clusters":            self._collect_eks_clusters,
+            "ecr_repositories":        self._collect_ecr_repositories,
+            "secrets":                 self._collect_secrets_manager,
+            "config_recorders":        self._collect_config,
+            "guardduty_detectors":     self._collect_guardduty,
+            "elasticache_clusters":    self._collect_elasticache,
+            "dynamodb_tables":         self._collect_dynamodb,
+            "load_balancers":          self._collect_load_balancers,
+            "api_gateways":            self._collect_api_gateways,
+            "redshift_clusters":       self._collect_redshift,
+            "elasticsearch_domains":   self._collect_elasticsearch,
+            "waf_web_acls":            self._collect_waf,
+            "cognito_user_pools":      self._collect_cognito,
+            "ssm_parameters":          self._collect_ssm_parameters,
+            "acm_certificates":        self._collect_acm_certificates,
+            "route53_zones":           self._collect_route53,
+            "ecs_task_definitions":    self._collect_ecs,
+            "kinesis_streams":         self._collect_kinesis,
+            "ses_identities":          self._collect_ses,
+            "macie_status":            self._collect_macie,
+            "inspector_status":        self._collect_inspector,
         }
+
+        results = {"region": self.region}
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(fn): key for key, fn in collectors.items()}
+            for future in as_completed(futures):
+                key = futures[future]
+                try:
+                    results[key] = future.result()
+                except Exception:
+                    results[key] = {} if key == "iam_summary" else []
+        return results
 
     # ── IAM ──────────────────────────────────────────────────────────────────
 

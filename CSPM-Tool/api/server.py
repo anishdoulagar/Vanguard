@@ -282,49 +282,72 @@ async def _run_scan_engine(cloud: str, aws_creds: dict = None,
                             azure_creds: dict = None,
                             timeout_seconds: int = 600) -> dict:
     """
-    Runs the scan engine in a thread executor so boto3/azure SDK calls
-    never block the async event loop. Hard timeout of 10 min per scan.
+    Runs the scan engine with full parallelism:
+    - AWS and Azure data collection run concurrently
+    - All service collectors within each cloud run concurrently (ThreadPoolExecutor inside connectors)
+    - AWS and Azure policy evaluation run concurrently
+    Hard timeout of 10 min per scan.
     """
-    loop     = asyncio.get_event_loop()
-    aws_raw  = None
-    azure_raw = None
+    loop = asyncio.get_event_loop()
 
+    # ── Build collection tasks ───────────────────────────────────────────────
+    collect_tasks = []
+    task_labels   = []
+
+    if cloud in ("aws", "all") and aws_creds:
+        aws_connector = AWSConnector(
+            aws_access_key_id=aws_creds["access_key_id"],
+            aws_secret_access_key=aws_creds["secret_access_key"],
+            region_name=aws_creds.get("region", "us-east-1"),
+        )
+        collect_tasks.append(loop.run_in_executor(None, aws_connector.collect_all))
+        task_labels.append("aws")
+
+    if cloud in ("azure", "all") and azure_creds:
+        azure_connector = AzureConnector(
+            subscription_id=azure_creds["subscription_id"],
+            tenant_id=azure_creds["tenant_id"],
+            client_id=azure_creds["client_id"],
+            client_secret=azure_creds["client_secret"],
+        )
+        collect_tasks.append(loop.run_in_executor(None, azure_connector.collect_all))
+        task_labels.append("azure")
+
+    # ── Run AWS + Azure collection concurrently ──────────────────────────────
     try:
-        if cloud in ("aws", "all") and aws_creds:
-            connector = AWSConnector(
-                aws_access_key_id=aws_creds["access_key_id"],
-                aws_secret_access_key=aws_creds["secret_access_key"],
-                region_name=aws_creds.get("region", "us-east-1"),
-            )
-            aws_raw = await asyncio.wait_for(
-                loop.run_in_executor(None, connector.collect_all),
-                timeout=timeout_seconds,
-            )
-
-        if cloud in ("azure", "all") and azure_creds:
-            connector = AzureConnector(
-                subscription_id=azure_creds["subscription_id"],
-                tenant_id=azure_creds["tenant_id"],
-                client_id=azure_creds["client_id"],
-                client_secret=azure_creds["client_secret"],
-            )
-            azure_raw = await asyncio.wait_for(
-                loop.run_in_executor(None, connector.collect_all),
-                timeout=timeout_seconds,
-            )
+        collected = await asyncio.wait_for(
+            asyncio.gather(*collect_tasks),
+            timeout=timeout_seconds,
+        )
     except asyncio.TimeoutError:
         raise TimeoutError(
             f"Scan timed out after {timeout_seconds}s. "
             "Check cloud provider connectivity and permissions."
         )
 
-    resources    = normalize_all(aws_raw or {}, azure_raw or {})
-    all_findings = []
+    raw_by_cloud = dict(zip(task_labels, collected))
+    aws_raw   = raw_by_cloud.get("aws")
+    azure_raw = raw_by_cloud.get("azure")
 
+    # ── Normalize ────────────────────────────────────────────────────────────
+    resources = normalize_all(aws_raw or {}, azure_raw or {})
+
+    # ── Run AWS + Azure policy evaluation concurrently ───────────────────────
+    eval_tasks = []
+    eval_labels = []
     if aws_raw:
-        all_findings.extend(check_aws_resources(resources))
+        eval_tasks.append(loop.run_in_executor(None, check_aws_resources, resources))
+        eval_labels.append("aws")
     if azure_raw:
-        all_findings.extend(check_azure_resources(resources))
+        eval_tasks.append(loop.run_in_executor(None, check_azure_resources, resources))
+        eval_labels.append("azure")
+
+    evaluated = await asyncio.gather(*eval_tasks)
+    findings_by_cloud = dict(zip(eval_labels, evaluated))
+
+    all_findings = []
+    for findings in findings_by_cloud.values():
+        all_findings.extend(findings)
 
     finding_map = {}
     for f in all_findings:

@@ -4,6 +4,7 @@ Collects raw configuration data from Azure services.
 Uses Service Principal (ClientSecretCredential) — credentials never stored.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from azure.identity import ClientSecretCredential
 from azure.mgmt.resource  import ResourceManagementClient
 from azure.mgmt.storage   import StorageManagementClient
@@ -70,32 +71,43 @@ class AzureConnector:
             raise ConnectionError(f"Azure connection error: {e}")
 
     def collect_all(self) -> dict:
-        """Collect all Azure resource data."""
-        return {
-            "storage_accounts":        self._collect_storage_accounts(),
-            "virtual_machines":        self._collect_virtual_machines(),
-            "network_security_groups": self._collect_nsgs(),
-            "key_vaults":              self._collect_key_vaults(),
-            "sql_servers":             self._collect_sql_servers(),
-            "app_services":            self._collect_app_services(),
-            "aks_clusters":            self._collect_aks_clusters(),
-            "container_registries":    self._collect_container_registries(),
-            "cosmos_accounts":         self._collect_cosmos_db(),
-            "redis_caches":            self._collect_redis(),
-            "postgresql_servers":      self._collect_postgresql(),
-            "mysql_servers":           self._collect_mysql(),
-            "event_hub_namespaces":    self._collect_event_hub_namespaces(),
-            "service_bus_namespaces":  self._collect_service_bus_namespaces(),
-            "network_watchers":        self._collect_network_watchers(),
-            "application_gateways":    self._collect_application_gateways(),
-            "log_analytics_workspaces": self._collect_log_analytics_workspaces(),
-            "logic_apps":              self._collect_logic_apps(),
-            "defender_plans":          self._collect_defender_plans(),
-            "activity_log_alerts":     self._collect_activity_log_alerts(),
-            "security_center":         self._collect_security_center(),
-            "public_ips":              self._collect_public_ips(),
-            "load_balancers":          self._collect_load_balancers(),
+        """Collect all Azure resource data in parallel."""
+        collectors = {
+            "storage_accounts":         self._collect_storage_accounts,
+            "virtual_machines":         self._collect_virtual_machines,
+            "network_security_groups":  self._collect_nsgs,
+            "key_vaults":               self._collect_key_vaults,
+            "sql_servers":              self._collect_sql_servers,
+            "app_services":             self._collect_app_services,
+            "aks_clusters":             self._collect_aks_clusters,
+            "container_registries":     self._collect_container_registries,
+            "cosmos_accounts":          self._collect_cosmos_db,
+            "redis_caches":             self._collect_redis,
+            "postgresql_servers":       self._collect_postgresql,
+            "mysql_servers":            self._collect_mysql,
+            "event_hub_namespaces":     self._collect_event_hub_namespaces,
+            "service_bus_namespaces":   self._collect_service_bus_namespaces,
+            "network_watchers":         self._collect_network_watchers,
+            "application_gateways":     self._collect_application_gateways,
+            "log_analytics_workspaces": self._collect_log_analytics_workspaces,
+            "logic_apps":               self._collect_logic_apps,
+            "defender_plans":           self._collect_defender_plans,
+            "activity_log_alerts":      self._collect_activity_log_alerts,
+            "security_center":          self._collect_security_center,
+            "public_ips":               self._collect_public_ips,
+            "load_balancers":           self._collect_load_balancers,
         }
+
+        results = {}
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = {executor.submit(fn): key for key, fn in collectors.items()}
+            for future in as_completed(futures):
+                key = futures[future]
+                try:
+                    results[key] = future.result()
+                except Exception:
+                    results[key] = []
+        return results
 
     # ── Storage Accounts ─────────────────────────────────────────────────────
 
