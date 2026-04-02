@@ -79,11 +79,13 @@ function InviteUserModal({ token, onClose }) {
       position: "fixed", inset: 0, zIndex: 100,
       background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)",
       display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      animation: "overlayIn 0.2s ease-out",
     }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{
         width: "100%", maxWidth: 440,
         background: "var(--surface)", border: "1px solid var(--border)",
         borderRadius: 12, boxShadow: "0 24px 64px rgba(0,0,0,0.5)", overflow: "hidden",
+        animation: "modalIn 0.25s cubic-bezier(0.23, 1, 0.32, 1)",
       }}>
         {/* Header */}
         <div style={{
@@ -252,11 +254,13 @@ function DeleteConfirmModal({ user, token, onDeleted, onClose }) {
       position: "fixed", inset: 0, zIndex: 110,
       background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
       display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      animation: "overlayIn 0.2s ease-out",
     }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{
         width: "100%", maxWidth: 380,
         background: "var(--surface)", border: "1px solid rgba(224,85,85,0.4)",
         borderRadius: 12, boxShadow: "0 24px 64px rgba(0,0,0,0.5)", overflow: "hidden",
+        animation: "modalIn 0.25s cubic-bezier(0.23, 1, 0.32, 1)",
       }}>
         <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 14, color: "#e05555" }}>
@@ -299,6 +303,142 @@ function DeleteConfirmModal({ user, token, onDeleted, onClose }) {
   );
 }
 
+// ── Team Manager Modal ────────────────────────────────────────────────────────
+
+function TeamManagerModal({ targetUser, token, allTeams, onClose }) {
+  const [memberTeamIds, setMemberTeamIds] = useState(null);
+  const [loading, setLoading]             = useState(true);
+  const [busy, setBusy]                   = useState(null);
+
+  // Load this user's current team memberships by checking each team
+  useEffect(() => {
+    async function load() {
+      const ids = new Set();
+      for (const t of allTeams) {
+        try {
+          const r = await fetch(`${API}/teams/${t.id}/members`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const d = await r.json();
+          if ((d.members || []).some(m => String(m.user_id) === String(targetUser.id))) {
+            ids.add(t.id);
+          }
+        } catch {}
+      }
+      setMemberTeamIds(ids);
+      setLoading(false);
+    }
+    load();
+  }, [targetUser.id, token]);
+
+  async function addToTeam(teamId) {
+    setBusy(teamId);
+    try {
+      await fetch(`${API}/teams/${teamId}/members`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: String(targetUser.id) }),
+      });
+      setMemberTeamIds(s => new Set([...s, teamId]));
+    } catch {}
+    finally { setBusy(null); }
+  }
+
+  async function removeFromTeam(teamId) {
+    setBusy(teamId);
+    try {
+      await fetch(`${API}/teams/${teamId}/members/${targetUser.id}`, {
+        method: "DELETE", headers: { Authorization: `Bearer ${token}` },
+      });
+      setMemberTeamIds(s => { const n = new Set(s); n.delete(teamId); return n; });
+    } catch {}
+    finally { setBusy(null); }
+  }
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 200,
+      background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      animation: "overlayIn 0.2s ease-out",
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        width: "100%", maxWidth: 460,
+        background: "var(--surface)", border: "1px solid var(--border)",
+        borderRadius: 12, boxShadow: "0 24px 64px rgba(0,0,0,0.5)", overflow: "hidden",
+        animation: "modalIn 0.25s cubic-bezier(0.23,1,0.32,1)",
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "16px 20px", borderBottom: "1px solid var(--border)",
+        }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "var(--accent)" }}>
+              Team Memberships
+            </div>
+            <div style={{ fontSize: 11, color: "var(--accent3)", marginTop: 2 }}>
+              {targetUser.name} · {targetUser.email}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent3)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div style={{ padding: 20, maxHeight: 400, overflowY: "auto" }}>
+          {loading && <div style={{ color: "var(--accent3)", fontSize: 13 }}>Loading…</div>}
+          {!loading && allTeams.length === 0 && (
+            <div style={{ color: "var(--accent3)", fontSize: 13 }}>No teams exist yet. Create teams first.</div>
+          )}
+          {!loading && allTeams.map(t => {
+            const isMember = memberTeamIds?.has(t.id);
+            return (
+              <div key={t.id} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 0", borderBottom: "1px solid var(--border)",
+              }}>
+                <div style={{
+                  width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                  background: isMember ? "var(--green)" : "var(--border)",
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>{t.name}</div>
+                  {t.description && <div style={{ fontSize: 10, color: "var(--accent3)" }}>{t.description}</div>}
+                </div>
+                {isMember ? (
+                  <button style={{
+                    padding: "4px 10px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+                    cursor: "pointer", border: "1px solid rgba(224,85,85,0.3)",
+                    background: "rgba(224,85,85,0.08)", color: "var(--red)",
+                  }} onClick={() => removeFromTeam(t.id)} disabled={busy === t.id}>
+                    {busy === t.id ? "…" : "Remove"}
+                  </button>
+                ) : (
+                  <button style={{
+                    padding: "4px 10px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+                    cursor: "pointer", border: "1px solid rgba(245,166,35,0.3)",
+                    background: "rgba(245,166,35,0.08)", color: "var(--cyan)",
+                  }} onClick={() => addToTeam(t.id)} disabled={busy === t.id}>
+                    {busy === t.id ? "…" : "Add"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)" }}>
+          <button onClick={onClose} className="btn-ghost" style={{ padding: "7px 16px", fontSize: 12, width: "100%" }}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function UsersPage({ token, currentUser }) {
@@ -307,6 +447,8 @@ export default function UsersPage({ token, currentUser }) {
   const [error,       setError]       = useState(null);
   const [showInvite,  setShowInvite]  = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [teamTarget, setTeamTarget]   = useState(null);
+  const [allTeams, setAllTeams]       = useState([]);
 
   // per-row state
   const [rowState, setRowState] = useState({});
@@ -316,10 +458,15 @@ export default function UsersPage({ token, currentUser }) {
   async function loadUsers() {
     setLoading(true); setError(null);
     try {
-      const res  = await fetch(`${API}/admin/users`, { headers });
+      const [res, tRes] = await Promise.all([
+        fetch(`${API}/admin/users`, { headers }),
+        fetch(`${API}/teams`, { headers }),
+      ]);
       const data = await res.json();
       if (!res.ok) { setError(data.detail || "Failed to load users."); return; }
       setUsers(data.users);
+      const td = await tRes.json();
+      setAllTeams(td.teams || []);
       const init = {};
       data.users.forEach(u => {
         init[u.id] = {
@@ -390,6 +537,13 @@ export default function UsersPage({ token, currentUser }) {
     setUsers(us => us.filter(u => u.id !== id));
   }
 
+  if (currentUser?.role !== "superadmin") return (
+    <div style={{ padding: "60px 32px", textAlign: "center", color: "var(--accent3)",
+                  fontFamily: "var(--font-mono)", fontSize: "13px" }}>
+      <div style={{ fontSize: 32, marginBottom: 16 }}>⛔</div>
+      Superadmin access required.
+    </div>
+  );
   if (loading) return (
     <div style={{ padding: 40, color: "var(--accent3)", fontFamily: "var(--font-ui)", fontSize: 13 }}>Loading users...</div>
   );
@@ -404,6 +558,7 @@ export default function UsersPage({ token, currentUser }) {
 
       {showInvite && <InviteUserModal token={token} onClose={() => setShowInvite(false)} />}
       {deleteTarget && <DeleteConfirmModal user={deleteTarget} token={token} onDeleted={onUserDeleted} onClose={() => setDeleteTarget(null)} />}
+      {teamTarget && <TeamManagerModal targetUser={teamTarget} token={token} allTeams={allTeams} onClose={() => setTeamTarget(null)} />}
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
@@ -569,7 +724,13 @@ export default function UsersPage({ token, currentUser }) {
               </div>
 
               {/* Actions */}
-              <div style={{ display: "flex", gap: 6 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button onClick={() => setTeamTarget(u)} style={{
+                  padding: "5px 9px", borderRadius: 5, cursor: "pointer",
+                  background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.25)",
+                  color: "var(--cyan)", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
+                  letterSpacing: "0.04em", transition: "all 0.15s",
+                }}>Teams</button>
                 {!isSelf && (
                   <button onClick={() => setDeleteTarget(u)} style={{
                     padding: "5px 10px", borderRadius: 5, cursor: "pointer",

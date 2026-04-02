@@ -11,6 +11,7 @@ import PoliciesPage  from "./pages/PoliciesPage";
 import AlertsPage    from "./pages/AlertsPage";
 import UsersPage     from "./pages/UsersPage";
 import AuditPage     from "./pages/AuditPage";
+import TeamsPage     from "./pages/TeamsPage";
 
 const IconDashboard = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -87,8 +88,19 @@ const IconAudit = () => (
   </svg>
 );
 
+const IconTeams = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+);
+
 // Extra nav items only visible to admin+
 const ADMIN_NAV_ITEMS = [
+  { id: "teams", label: "TEAMS",     Icon: IconTeams,  minRole: "admin"      },
   { id: "users", label: "USERS",     Icon: IconUsers,  minRole: "superadmin" },
   { id: "audit", label: "AUDIT LOG", Icon: IconAudit,  minRole: "admin"      },
 ];
@@ -158,6 +170,7 @@ export default function App() {
   const [scanResult,     setScanResult]     = useState(null);
   const [scanPayload,    setScanPayload]    = useState(null);
   const [dashboardData,  setDashboardData]  = useState(null);  // persists across navigation
+  const [showSecurity,   setShowSecurity]   = useState(false);
 
   const [savedCloud, setSavedCloud] = useState("aws");
   const [savedAws,   setSavedAws]   = useState({
@@ -198,11 +211,10 @@ export default function App() {
     <div style={{
       minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
       background: "var(--bg)", color: "var(--cyan)",
-      fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.2em",
-      textShadow: "var(--glow-cyan)",
-      animation: "neonPulse 1.5s ease-in-out infinite",
+      fontFamily: "var(--font-ui)", fontSize: 13, letterSpacing: "0.1em",
+      fontWeight: 600,
     }}>
-      INITIALIZING VANGUARD...
+      Initializing Vanguard...
     </div>
   );
 
@@ -216,11 +228,29 @@ export default function App() {
     <AuthPage onAuth={handleAuth} initialResetToken={initialResetToken} initialInviteToken={initialInviteToken} />
   );
 
+  const ROLE_RANK = { viewer: 0, analyst: 1, admin: 2, superadmin: 3 };
+  function hasRole(min) {
+    return (ROLE_RANK[user.role] ?? 0) >= (ROLE_RANK[min] ?? 0);
+  }
+  function Denied() {
+    return (
+      <div style={{ padding: "60px 32px", textAlign: "center",
+                    color: "var(--accent3)", fontFamily: "var(--font-mono)", fontSize: "13px" }}>
+        <div style={{ fontSize: 32, marginBottom: 16 }}>⛔</div>
+        You don't have permission to view this page.
+      </div>
+    );
+  }
+
   function renderPage() {
     switch (page) {
       case "accounts":
-        return <AccountsPage token={token} role={user.role} onScanComplete={onScanComplete} />;
+        return <AccountsPage token={token} role={user.role} user={user} onScanComplete={onScanComplete} />;
+      case "teams":
+        if (!hasRole("admin")) return <Denied />;
+        return <TeamsPage token={token} user={user} />;
       case "connect":
+        if (!hasRole("analyst")) return <Denied />;
         return (
           <ConnectPage
             onStartScan={goToScan}
@@ -235,8 +265,10 @@ export default function App() {
           />
         );
       case "scan":
+        if (!hasRole("analyst")) return <Denied />;
         return <ScanPage cloud={scanPayload} onComplete={onScanComplete} />;
       case "results":
+        if (!hasRole("analyst")) return <Denied />;
         return (
           <ResultsPage
             result={scanResult}
@@ -246,46 +278,292 @@ export default function App() {
       case "history":
         return <HistoryPage token={token} role={user.role} />;
       case "alerts":
+        if (!hasRole("analyst")) return <Denied />;
         return <AlertsPage token={token} role={user.role} userEmail={user.email} />;
       case "policies":
         return <PoliciesPage role={user.role} />;
       case "users":
+        if (!hasRole("superadmin")) return <Denied />;
         return <UsersPage token={token} currentUser={user} />;
       case "audit":
-        return <AuditPage token={token} />;
+        if (!hasRole("admin")) return <Denied />;
+        return <AuditPage token={token} role={user.role} />;
       default:
         return null;
     }
   }
 
-  const activePage = ["results","scan"].includes(page) ? "dashboard" : page;
+  const activePage = ["results", "scan"].includes(page) ? "dashboard" : page;
 
+  // ── SecurityModal — MFA setup/disable ──────────────────────────────────────
+  function SecurityModal() {
+    const [mfaStep,       setMfaStep]       = useState("idle"); // idle | setup | verify_setup | backup_codes | disable
+    const [qrCode,        setQrCode]        = useState(null);
+    const [secret,        setSecret]        = useState(null);
+    const [verifyCode,    setVerifyCode]     = useState("");
+    const [backupCodes,   setBackupCodes]   = useState([]);
+    const [disableCode,   setDisableCode]   = useState("");
+    const [loading,       setModalLoading]  = useState(false);
+    const [err,           setErr]           = useState(null);
+    const isMfaEnabled = user?.mfa_enabled;
+    const hdrs = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+    async function startSetup() {
+      setModalLoading(true); setErr(null);
+      try {
+        const res  = await fetch(`${API}/auth/mfa/setup`, { method: "POST", headers: hdrs });
+        const data = await res.json();
+        if (!res.ok) { setErr(data.detail || "Setup failed."); return; }
+        setQrCode(data.qr_code); setSecret(data.secret);
+        setMfaStep("setup");
+      } catch { setErr("Cannot reach server."); }
+      finally { setModalLoading(false); }
+    }
+
+    async function confirmSetup() {
+      if (!verifyCode.trim()) { setErr("Enter the 6-digit code."); return; }
+      setModalLoading(true); setErr(null);
+      try {
+        const res  = await fetch(`${API}/auth/mfa/verify-setup`, {
+          method: "POST", headers: hdrs,
+          body: JSON.stringify({ code: verifyCode.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setErr(data.detail || "Verification failed."); return; }
+        setBackupCodes(data.backup_codes);
+        setMfaStep("backup_codes");
+        setUser(u => ({ ...u, mfa_enabled: true }));
+        saveSession(token, { ...user, mfa_enabled: true });
+      } catch { setErr("Cannot reach server."); }
+      finally { setModalLoading(false); }
+    }
+
+    async function confirmDisable() {
+      if (!disableCode.trim()) { setErr("Enter your authenticator code."); return; }
+      setModalLoading(true); setErr(null);
+      try {
+        const res  = await fetch(`${API}/auth/mfa/disable`, {
+          method: "POST", headers: hdrs,
+          body: JSON.stringify({ code: disableCode.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setErr(data.detail || "Could not disable MFA."); return; }
+        setUser(u => ({ ...u, mfa_enabled: false }));
+        saveSession(token, { ...user, mfa_enabled: false });
+        setShowSecurity(false);
+      } catch { setErr("Cannot reach server."); }
+      finally { setModalLoading(false); }
+    }
+
+    const inputS = {
+      width: "100%", background: "var(--surface)", border: "1px solid var(--border)",
+      borderRadius: 6, padding: "9px 12px", color: "var(--accent)",
+      fontFamily: "var(--font-mono)", fontSize: 13, boxSizing: "border-box",
+    };
+    const btnPrimary = {
+      width: "100%", padding: "10px", background: "var(--cyan)", color: "#0e0c09",
+      border: "none", borderRadius: 6, fontFamily: "var(--font-ui)", fontWeight: 700,
+      fontSize: 13, cursor: "pointer", letterSpacing: "0.04em", marginTop: 4,
+    };
+    const btnGhost = {
+      width: "100%", padding: "10px", background: "transparent", color: "var(--accent3)",
+      border: "1px solid var(--border)", borderRadius: 6, fontFamily: "var(--font-ui)",
+      fontWeight: 600, fontSize: 12, cursor: "pointer", letterSpacing: "0.04em", marginTop: 8,
+    };
+
+    return (
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        background: "rgba(0,0,0,0.65)", display: "flex",
+        alignItems: "center", justifyContent: "center", padding: 20,
+      }} onClick={() => setShowSecurity(false)}>
+        <div style={{
+          background: "var(--card)", border: "1px solid var(--border)",
+          borderRadius: 12, width: "100%", maxWidth: 420,
+          boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+        }} onClick={e => e.stopPropagation()}>
+
+          {/* Header */}
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "16px 20px", borderBottom: "1px solid var(--border)",
+          }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: "var(--accent)", letterSpacing: "0.06em" }}>
+              ACCOUNT SECURITY
+            </div>
+            <button onClick={() => setShowSecurity(false)} style={{
+              background: "transparent", border: "none", cursor: "pointer",
+              color: "var(--accent3)", fontSize: 18, lineHeight: 1,
+            }}>✕</button>
+          </div>
+
+          <div style={{ padding: 20 }}>
+            {err && (
+              <div style={{
+                padding: "10px 14px", borderRadius: 6, marginBottom: 14,
+                background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.25)",
+                color: "#e05555", fontFamily: "var(--font-mono)", fontSize: 12,
+              }}>{err}</div>
+            )}
+
+            {/* ── Idle / status ── */}
+            {mfaStep === "idle" && (
+              <>
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "12px 14px", borderRadius: 8, marginBottom: 16,
+                  background: isMfaEnabled ? "rgba(76,175,125,0.07)" : "rgba(136,153,170,0.06)",
+                  border: `1px solid ${isMfaEnabled ? "rgba(76,175,125,0.25)" : "var(--border)"}`,
+                }}>
+                  <div>
+                    <div style={{ fontFamily: "var(--font-ui)", fontSize: 13, fontWeight: 600, color: "var(--accent)", marginBottom: 3 }}>
+                      Two-Factor Authentication
+                    </div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: isMfaEnabled ? "var(--green)" : "var(--accent3)" }}>
+                      {isMfaEnabled ? "● Enabled" : "○ Not enabled"}
+                    </div>
+                  </div>
+                  <div style={{
+                    padding: "3px 10px", borderRadius: 4, fontSize: 10, fontWeight: 700,
+                    fontFamily: "var(--font-ui)", letterSpacing: "0.08em",
+                    background: isMfaEnabled ? "rgba(76,175,125,0.12)" : "rgba(136,153,170,0.1)",
+                    border: `1px solid ${isMfaEnabled ? "rgba(76,175,125,0.3)" : "var(--border)"}`,
+                    color: isMfaEnabled ? "var(--green)" : "var(--accent3)",
+                  }}>{isMfaEnabled ? "ACTIVE" : "INACTIVE"}</div>
+                </div>
+                {isMfaEnabled ? (
+                  <button onClick={() => { setMfaStep("disable"); setErr(null); }} style={{
+                    ...btnGhost, color: "#e05555", borderColor: "rgba(224,85,85,0.3)",
+                  }}>Disable MFA</button>
+                ) : (
+                  <button onClick={startSetup} disabled={loading} style={btnPrimary}>
+                    {loading ? "Loading..." : "Enable MFA"}
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* ── QR setup ── */}
+            {mfaStep === "setup" && (
+              <>
+                <p style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--accent2)", marginTop: 0, marginBottom: 16, lineHeight: 1.6 }}>
+                  Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code below.
+                </p>
+                {qrCode && (
+                  <div style={{ textAlign: "center", marginBottom: 16 }}>
+                    <img src={`data:image/png;base64,${qrCode}`} alt="MFA QR Code"
+                         style={{ width: 180, height: 180, borderRadius: 8, border: "3px solid var(--border)" }} />
+                  </div>
+                )}
+                <details style={{ marginBottom: 16 }}>
+                  <summary style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--accent3)", cursor: "pointer", letterSpacing: "0.06em" }}>
+                    Can't scan? Enter manually
+                  </summary>
+                  <div style={{
+                    marginTop: 8, padding: "8px 10px", borderRadius: 6,
+                    background: "var(--surface)", border: "1px solid var(--border)",
+                    fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--cyan)",
+                    wordBreak: "break-all", letterSpacing: "0.1em",
+                  }}>{secret}</div>
+                </details>
+                <label style={{ display: "block", color: "var(--accent3)", fontSize: 11, letterSpacing: "0.1em", fontFamily: "var(--font-ui)", fontWeight: 600, marginBottom: 6 }}>
+                  VERIFICATION CODE
+                </label>
+                <input
+                  autoFocus type="text" inputMode="numeric" placeholder="000000" maxLength={6}
+                  value={verifyCode} onChange={e => setVerifyCode(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && confirmSetup()}
+                  style={{ ...inputS, textAlign: "center", fontSize: 20, letterSpacing: "0.3em" }}
+                />
+                <button onClick={confirmSetup} disabled={loading} style={{ ...btnPrimary, marginTop: 12 }}>
+                  {loading ? "Verifying..." : "Activate MFA"}
+                </button>
+                <button onClick={() => setMfaStep("idle")} style={btnGhost}>Cancel</button>
+              </>
+            )}
+
+            {/* ── Backup codes ── */}
+            {mfaStep === "backup_codes" && (
+              <>
+                <div style={{
+                  padding: "10px 14px", borderRadius: 6, marginBottom: 14,
+                  background: "rgba(76,175,125,0.07)", border: "1px solid rgba(76,175,125,0.25)",
+                  color: "var(--green)", fontFamily: "var(--font-mono)", fontSize: 11,
+                }}>
+                  ✓ MFA enabled. Save these backup codes — they won't be shown again.
+                </div>
+                <div style={{
+                  display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 16,
+                }}>
+                  {backupCodes.map((c, i) => (
+                    <div key={i} style={{
+                      padding: "7px 10px", borderRadius: 5, textAlign: "center",
+                      background: "var(--surface)", border: "1px solid var(--border)",
+                      fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700,
+                      color: "var(--accent)", letterSpacing: "0.15em",
+                    }}>{c}</div>
+                  ))}
+                </div>
+                <button onClick={() => setShowSecurity(false)} style={btnPrimary}>
+                  I've saved my backup codes
+                </button>
+              </>
+            )}
+
+            {/* ── Disable ── */}
+            {mfaStep === "disable" && (
+              <>
+                <p style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--accent2)", marginTop: 0, marginBottom: 14, lineHeight: 1.6 }}>
+                  Enter your current authenticator code or a backup code to disable MFA.
+                </p>
+                <label style={{ display: "block", color: "var(--accent3)", fontSize: 11, letterSpacing: "0.1em", fontFamily: "var(--font-ui)", fontWeight: 600, marginBottom: 6 }}>
+                  VERIFICATION CODE
+                </label>
+                <input
+                  autoFocus type="text" inputMode="numeric" placeholder="000000" maxLength={8}
+                  value={disableCode} onChange={e => setDisableCode(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && confirmDisable()}
+                  style={{ ...inputS, textAlign: "center", fontSize: 20, letterSpacing: "0.3em" }}
+                />
+                <button onClick={confirmDisable} disabled={loading} style={{
+                  ...btnPrimary, background: "#e05555", marginTop: 12,
+                }}>
+                  {loading ? "Disabling..." : "Disable MFA"}
+                </button>
+                <button onClick={() => setMfaStep("idle")} style={btnGhost}>Cancel</button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display:"flex", minHeight:"100vh", background:"var(--bg)" }}>
+      {showSecurity && <SecurityModal />}
 
       {/* ── Sidebar ── */}
       <nav style={{
-        width:"190px", flexShrink:0,
+        width:"216px", flexShrink:0,
         background:"var(--surface)", borderRight:"1px solid var(--sidebar-border)",
         display:"flex", flexDirection:"column",
-        padding:"24px 0", position:"sticky", top:0, height:"100vh",
+        padding:"20px 0", position:"sticky", top:0, height:"100vh",
       }}>
-        <div style={{ padding:"0 20px 24px" }}>
+        <div style={{ padding:"0 18px 18px" }}>
           <div style={{
-            fontFamily:"var(--font-display)", fontWeight:900,
-            fontSize:"18px", letterSpacing:"0.12em", lineHeight:1,
+            fontFamily:"var(--font-display)", fontWeight:800,
+            fontSize:"15px", letterSpacing:"0.10em", lineHeight:1,
             color:"var(--cyan)",
-            textShadow:"var(--glow-cyan)",
           }}>VANGUARD</div>
           <div style={{
             fontFamily:"var(--font-mono)", fontSize:"9px",
-            color:"var(--accent3)", marginTop:"4px",
-            letterSpacing:"0.2em",
-          }}>// CSPM v1.0</div>
+            color:"var(--accent3)", marginTop:"5px",
+            letterSpacing:"0.12em",
+          }}>CSPM Platform</div>
         </div>
 
-        <div style={{ height:"1px", background:"var(--nav-divider)", marginBottom:"8px" }} />
+        <div style={{ height:"1px", background:"var(--nav-divider)", marginBottom:"6px" }} />
 
         {NAV_ITEMS.filter(item =>
           !(user.role === "viewer" && item.id === "connect")
@@ -295,15 +573,14 @@ export default function App() {
             <button key={id} onClick={() => setPage(id)}
               className={`nav-btn${active ? " active" : ""}`}
               style={{
-                display:"flex", alignItems:"center", gap:"10px",
-                padding:"11px 20px", border:"none",
+                display:"flex", alignItems:"center", gap:"9px",
+                padding:"8px 18px", border:"none",
                 background: active ? "var(--nav-active-bg)" : "transparent",
                 color:      active ? "var(--cyan)" : "var(--accent2)",
-                fontFamily:"var(--font-ui)", fontWeight: active ? 700 : 500,
-                fontSize:"12px", letterSpacing:"0.08em",
+                fontFamily:"var(--font-ui)", fontWeight: active ? 600 : 400,
+                fontSize:"11px", letterSpacing:"0.06em",
                 cursor:"pointer", textAlign:"left", width:"100%",
                 borderLeft: "none",
-                textShadow: active ? `0 0 8px var(--nav-active-glow)` : "none",
               }}>
               <Icon />{label}
             </button>
@@ -330,16 +607,15 @@ export default function App() {
               const active = activePage === id;
               return (
                 <button key={id} onClick={() => setPage(id)} style={{
-                  display:"flex", alignItems:"center", gap:"10px",
-                  padding:"11px 20px", border:"none",
+                  display:"flex", alignItems:"center", gap:"9px",
+                  padding:"8px 18px", border:"none",
                   background: active ? "var(--admin-active-bg)" : "transparent",
                   color:      active ? "var(--magenta)" : "var(--accent2)",
-                  fontFamily:"var(--font-ui)", fontWeight: active ? 700 : 500,
-                  fontSize:"12px", letterSpacing:"0.08em",
+                  fontFamily:"var(--font-ui)", fontWeight: active ? 600 : 400,
+                  fontSize:"11px", letterSpacing:"0.06em",
                   cursor:"pointer", textAlign:"left", width:"100%",
                   borderLeft: "none",
-                  textShadow: active ? `0 0 8px var(--admin-active-glow)` : "none",
-                  transition:"all 0.15s",
+                  transition:"background 0.15s, color 0.15s",
                 }}>
                   <Icon />{label}
                 </button>
@@ -362,8 +638,8 @@ export default function App() {
                           whiteSpace:"nowrap" }}>{user.email}</div>
             {user.role && (() => {
               const roleColors = {
-                viewer:     { bg:"rgba(57,255,20,0.08)",  border:"rgba(57,255,20,0.3)",   text:"var(--green)" },
-                analyst:    { bg:"rgba(0,207,255,0.08)",  border:"rgba(0,207,255,0.3)",   text:"var(--blue)" },
+                viewer:     { bg:"rgba(16,185,129,0.10)", border:"rgba(16,185,129,0.3)", text:"var(--green)" },
+                analyst:    { bg:"rgba(79,143,247,0.10)", border:"rgba(79,143,247,0.3)", text:"var(--blue)" },
                 admin:      { bg:"var(--role-admin-bg)",  border:"var(--role-admin-border)", text:"var(--cyan)" },
                 superadmin: { bg:"var(--role-super-bg)",  border:"var(--role-super-border)", text:"var(--magenta)" },
               };
@@ -380,6 +656,23 @@ export default function App() {
               );
             })()}
           </div>
+          <button onClick={() => setShowSecurity(true)} style={{
+            width:"100%", padding:"10px 20px",
+            background:"transparent",
+            border:"none", borderTop:"1px solid var(--bottom-divider)",
+            color: user?.mfa_enabled ? "var(--green)" : "var(--accent3)",
+            cursor:"pointer", fontFamily:"var(--font-ui)", fontSize:"12px",
+            textAlign:"left", letterSpacing:"0.08em", transition:"color 0.15s",
+            display:"flex", alignItems:"center", gap:8,
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = "var(--cyan)"}
+          onMouseLeave={e => e.currentTarget.style.color = user?.mfa_enabled ? "var(--green)" : "var(--accent3)"}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="5" y="11" width="14" height="10" rx="2"/>
+              <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+            </svg>
+            {user?.mfa_enabled ? "MFA ON" : "SECURITY"}
+          </button>
           <button
             onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
             title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
@@ -399,12 +692,12 @@ export default function App() {
           <button onClick={handleLogout} className="neon-btn" style={{
             width:"100%", padding:"10px 20px",
             background:"transparent",
-            border:"none", borderTop:"1px solid rgba(255,230,0,0.08)",
+            border:"none", borderTop:"1px solid var(--bottom-divider)",
             color:"var(--accent3)", cursor:"pointer",
             fontFamily:"var(--font-ui)", fontSize:"12px",
             textAlign:"left", letterSpacing:"0.08em", transition:"color 0.15s",
           }}
-          onMouseEnter={e => e.currentTarget.style.color = "var(--magenta)"}
+          onMouseEnter={e => e.currentTarget.style.color = "var(--red)"}
           onMouseLeave={e => e.currentTarget.style.color = "var(--accent3)"}>
             SIGN OUT
           </button>

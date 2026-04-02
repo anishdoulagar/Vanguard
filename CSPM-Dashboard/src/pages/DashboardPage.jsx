@@ -9,16 +9,16 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 /* ── Palette & helpers ──────────────────────────────────────────────────────── */
 const S = {
-  CRITICAL: { color: "#ff2255", bg: "rgba(255,34,85,0.10)", label: "CRITICAL" },
-  HIGH:     { color: "#ff6b00", bg: "rgba(255,107,0,0.10)", label: "HIGH" },
-  MEDIUM:   { color: "#ffe600", bg: "rgba(255,230,0,0.08)", label: "MEDIUM" },
-  LOW:      { color: "#39ff14", bg: "rgba(57,255,20,0.06)", label: "LOW" },
+  CRITICAL: { color: "#e05555", bg: "rgba(224,85,85,0.10)",  label: "CRITICAL" },
+  HIGH:     { color: "#f5782a", bg: "rgba(245,120,42,0.10)", label: "HIGH" },
+  MEDIUM:   { color: "#f5a623", bg: "rgba(245,166,35,0.08)", label: "MEDIUM" },
+  LOW:      { color: "#4dc882", bg: "rgba(77,200,130,0.07)", label: "LOW" },
 };
 const SEV_LIST = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
 function sColor(s) {
   if (s == null) return "var(--accent3)";
-  return s >= 80 ? "#39ff14" : s >= 60 ? "#ffe600" : s >= 40 ? "#ff6b00" : "#ff2255";
+  return s >= 80 ? "#10b981" : s >= 60 ? "#f59e0b" : s >= 40 ? "#f97316" : "#ef4444";
 }
 function sLabel(s) {
   if (s == null) return "N/A";
@@ -204,7 +204,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
     return true;
   }), [findings, sevPick, statusPick, search, statuses]);
 
-  const trendColors = ["#ffe600", "#00cfff", "#39ff14", "#bf5fff", "#ff6b00"];
+  const trendColors = ["#f5a623", "#c084fc", "#4dc882", "#f5782a", "#e05555"];
 
   /* ── Layout uses a 12-col mental grid ─────────────────────────────────────── */
   const font = (size, weight = 400) => ({
@@ -213,16 +213,16 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
   const mono = (size) => ({ fontFamily: "var(--font-mono)", fontSize: size });
 
   return (
-    <div style={{ padding: "20px 24px 40px", maxWidth: 1440, margin: "0 auto" }}>
+    <div style={{ padding: "28px 36px 52px", maxWidth: 1440, margin: "0 auto" }}>
 
       {/* ── Toast ── */}
       {toast && (
         <div style={{
           position: "fixed", top: 16, right: 16, zIndex: 9999,
           padding: "10px 18px", borderRadius: 8,
-          background: toast.isErr ? "rgba(255,34,85,0.15)" : "rgba(57,255,20,0.1)",
-          border: `1px solid ${toast.isErr ? "rgba(255,34,85,0.35)" : "rgba(57,255,20,0.3)"}`,
-          color: toast.isErr ? "#ff2255" : "#39ff14",
+          background: toast.isErr ? "rgba(239,68,68,0.12)" : "rgba(16,185,129,0.10)",
+          border: `1px solid ${toast.isErr ? "rgba(239,68,68,0.30)" : "rgba(16,185,129,0.25)"}`,
+          color: toast.isErr ? "var(--red)" : "var(--green)",
           ...mono(12), boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
           animation: "fadeIn 0.2s ease",
         }}>{toast.msg}</div>
@@ -232,8 +232,8 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                     marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <div>
-          <h1 style={{ margin: 0, ...font(22, 800), fontFamily: "var(--font-display)",
-                       letterSpacing: "0.06em", color: "var(--accent)" }}>
+          <h1 style={{ margin: 0, ...font(18, 700), fontFamily: "var(--font-display)",
+                       letterSpacing: "0.04em", color: "var(--accent)" }}>
             SECURITY OVERVIEW
           </h1>
           <div style={{ ...mono(11), color: "var(--accent3)", marginTop: 4 }}>
@@ -241,31 +241,35 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
               `${nScanned}/${nAccounts} accounts · ${counts.TOTAL} findings · ${new Date().toLocaleDateString()}`}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           {[["all","ALL"],["7","7D"],["30","30D"],["90","90D"]].map(([v, l]) => (
             <button key={v} onClick={() => setRange(v)} style={{
-              padding: "6px 12px", borderRadius: 6, ...font(10, 700),
-              letterSpacing: "0.08em", cursor: "pointer",
+              padding: "5px 11px", borderRadius: 6, ...font(10, 600),
+              letterSpacing: "0.07em", cursor: "pointer",
               border: range === v ? "1px solid var(--cyan)" : "1px solid var(--border)",
               background: range === v ? "var(--cyan)" : "transparent",
               color: range === v ? "var(--bg)" : "var(--accent3)",
-              transition: "all 0.15s",
+              transition: "border-color 0.15s, background 0.15s, color 0.15s",
             }}>{l}</button>
           ))}
           <button onClick={() => load(range)} disabled={loading} style={{
-            padding: "6px 12px", borderRadius: 6, ...font(10, 700),
+            padding: "5px 10px", borderRadius: 6, ...font(11, 500),
             border: "1px solid var(--border)", background: "transparent",
             color: "var(--accent3)", cursor: "pointer", opacity: loading ? 0.4 : 1,
+            transition: "color 0.15s",
           }}>↻</button>
           {canScan && (
-            <button onClick={scanAll} disabled={bulkScan || loading}
-              style={{
-                padding: "6px 16px", borderRadius: 6, ...font(10, 700),
-                letterSpacing: "0.06em", cursor: bulkScan ? "wait" : "pointer",
-                border: "1px solid var(--cyan)", color: "var(--bg)",
-                background: "var(--cyan)", opacity: bulkScan ? 0.6 : 1,
-                transition: "opacity 0.15s",
-              }}>{bulkScan ? "SCANNING…" : "SCAN ALL ACCOUNTS"}</button>
+            <>
+              <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
+              <button onClick={scanAll} disabled={bulkScan || loading}
+                style={{
+                  padding: "5px 14px", borderRadius: 6, ...font(10, 700),
+                  letterSpacing: "0.06em", cursor: bulkScan ? "wait" : "pointer",
+                  border: "none", color: "var(--bg)",
+                  background: "var(--cyan)", opacity: bulkScan ? 0.6 : 1,
+                  transition: "opacity 0.15s",
+                }}>{bulkScan ? "SCANNING…" : "SCAN ALL"}</button>
+            </>
           )}
         </div>
       </div>
@@ -273,12 +277,12 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
       {/* ── Error ── */}
       {err && (
         <div style={{ marginBottom: 14, padding: "10px 16px", borderRadius: 8,
-                      background: "rgba(255,34,85,0.08)", border: "1px solid rgba(255,34,85,0.25)",
-                      color: "#ff2255", ...mono(12), display: "flex", gap: 8, alignItems: "center" }}>
+                      background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.22)",
+                      color: "var(--red)", ...mono(12), display: "flex", gap: 8, alignItems: "center" }}>
           ⚠ {err}
           <button onClick={() => setErr(null)} style={{
             marginLeft: "auto", background: "none", border: "none",
-            color: "#ff2255", cursor: "pointer", fontSize: 16 }}>×</button>
+            color: "var(--red)", cursor: "pointer", fontSize: 16 }}>×</button>
         </div>
       )}
 
@@ -350,7 +354,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                   background: active ? c.bg : "var(--card)",
                   border: `1px solid ${active ? c.color : "var(--border)"}`,
                   borderRadius: 12, padding: "18px 16px", cursor: "pointer",
-                  transition: "all 0.2s",
+                  transition: "border-color 0.15s, background 0.15s",
                   display: "flex", flexDirection: "column", justifyContent: "space-between",
                 }}>
                 <div style={{ ...font(9, 700), color: "var(--accent3)", letterSpacing: "0.12em" }}>{sev}</div>
@@ -679,7 +683,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                     padding: "10px 18px", cursor: "pointer",
                     borderBottom: open ? "none" : "1px solid var(--border)",
                     transition: "background 0.1s",
-                    background: open ? "rgba(255,230,0,0.02)" : "transparent",
+                    background: open ? "rgba(79,143,247,0.03)" : "transparent",
                   }}
                   onMouseEnter={e => { if (!open) e.currentTarget.style.background = "rgba(255,255,255,0.015)"; }}
                   onMouseLeave={e => { if (!open) e.currentTarget.style.background = "transparent"; }}
@@ -721,7 +725,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                   {/* Status */}
                   <span style={{
                     ...font(9, 700), letterSpacing: "0.06em",
-                    color: st === "resolved" ? "#39ff14" : st === "acknowledged" ? "#ffe600" : "#ff6b00",
+                    color: st === "resolved" ? "#10b981" : st === "acknowledged" ? "#f59e0b" : "#f97316",
                   }}>{st.toUpperCase()}</span>
 
                   {/* Arrow */}
@@ -737,7 +741,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                   <div style={{
                     padding: "16px 18px 18px", borderBottom: "1px solid var(--border)",
                     borderLeft: `3px solid ${S[f.severity]?.color || "var(--border)"}`,
-                    background: "rgba(255,230,0,0.01)",
+                    background: "rgba(79,143,247,0.02)",
                     animation: "fadeIn 0.15s ease",
                   }}>
                     {/* Message */}
@@ -777,7 +781,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       {["open", "acknowledged", "resolved"].map(s => {
                         const active = st === s;
-                        const c = s === "resolved" ? "#39ff14" : s === "acknowledged" ? "#ffe600" : "#ff6b00";
+                        const c = s === "resolved" ? "#10b981" : s === "acknowledged" ? "#f59e0b" : "#f97316";
                         return (
                           <button key={s}
                             onClick={e => { e.stopPropagation(); setFindingStatus(f, s); }}

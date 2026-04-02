@@ -14,11 +14,11 @@ function passwordStrength(pw) {
   if (/[A-Z]/.test(pw))        score++;
   if (/[0-9]/.test(pw))        score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
-  if (score <= 1) return { level: 1, label: "Weak",        color: "#e05555" };
-  if (score <= 2) return { level: 2, label: "Fair",        color: "#d97b3a" };
-  if (score <= 3) return { level: 3, label: "Good",        color: "#c9a84c" };
-  if (score <= 4) return { level: 4, label: "Strong",      color: "#4caf7d" };
-  return                { level: 5, label: "Very strong",  color: "#4caf7d" };
+  if (score <= 1) return { level: 1, label: "Weak",        color: "var(--red)" };
+  if (score <= 2) return { level: 2, label: "Fair",        color: "var(--orange)" };
+  if (score <= 3) return { level: 3, label: "Good",        color: "var(--yellow)" };
+  if (score <= 4) return { level: 4, label: "Strong",      color: "var(--green)" };
+  return                { level: 5, label: "Very strong",  color: "var(--green)" };
 }
 
 function PasswordField({ label, value, onChange }) {
@@ -64,14 +64,14 @@ function PasswordField({ label, value, onChange }) {
 }
 
 const labelStyle = {
-  display: "block", color: "var(--accent3)", fontSize: "10px",
-  letterSpacing: "0.12em", marginBottom: 6,
+  display: "block", color: "var(--accent3)", fontSize: "11px",
+  letterSpacing: "0.08em", marginBottom: 6,
   fontFamily: "var(--font-ui)", fontWeight: 600, textTransform: "uppercase",
 };
 const inputStyle = {
-  width: "100%", background: "var(--card)",
-  border: "1px solid var(--border)", borderRadius: 7,
-  padding: "10px 12px", color: "var(--accent)",
+  width: "100%", background: "var(--surface)",
+  border: "1px solid var(--border)", borderRadius: "var(--radius)",
+  padding: "11px 14px", color: "var(--accent)",
   fontFamily: "var(--font-mono)", fontSize: 13,
   boxSizing: "border-box", outline: "none",
 };
@@ -109,13 +109,13 @@ export default function SetupPage({ onSetupComplete }) {
   return (
     <div style={{
       minHeight: "100vh", display: "flex",
-      background: "radial-gradient(ellipse at 30% 40%, rgba(0,212,255,0.06) 0%, transparent 55%), radial-gradient(ellipse at 80% 80%, rgba(255,0,122,0.04) 0%, transparent 50%), var(--bg)",
+      background: "var(--bg)",
     }}>
 
       {/* ── Left panel ── */}
       <div style={{
         width: 420, flexShrink: 0,
-        background: "var(--surface)", borderRight: "1px solid rgba(0,212,255,0.15)",
+        background: "var(--surface)", borderRight: "1px solid var(--border)",
         display: "flex", flexDirection: "column",
         padding: "60px 48px",
       }}>
@@ -124,13 +124,12 @@ export default function SetupPage({ onSetupComplete }) {
         <div style={{ marginBottom: 48 }}>
           <div style={{
             fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 900,
-            color: "var(--cyan)", letterSpacing: "0.14em",
-            textShadow: "var(--glow-cyan)",
+            color: "var(--cyan)", letterSpacing: "0.1em",
           }}>VANGUARD</div>
           <div style={{
-            fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--accent3)",
-            marginTop: 5, letterSpacing: "0.18em",
-          }}>// CLOUD SECURITY POSTURE MANAGEMENT</div>
+            fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--accent3)",
+            marginTop: 6, letterSpacing: "0.06em",
+          }}>Cloud Security Posture Management</div>
         </div>
 
         {/* Step indicator */}
@@ -139,37 +138,35 @@ export default function SetupPage({ onSetupComplete }) {
         }}>
           <div style={{
             width: 28, height: 28, borderRadius: "50%",
-            background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.5)",
+            background: "rgba(79,143,247,0.1)", border: "1px solid rgba(79,143,247,0.3)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--cyan)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12,
-            boxShadow: "0 0 8px rgba(0,212,255,0.3)",
+            color: "var(--cyan)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
           }}>1</div>
-          <div style={{ color: "var(--cyan)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 13,
-                        textShadow: "0 0 8px rgba(0,212,255,0.4)" }}>
+          <div style={{ color: "var(--cyan)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 13 }}>
             Create Superadmin
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32, opacity: 0.6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32, opacity: 0.5 }}>
           <div style={{
             width: 28, height: 28, borderRadius: "50%",
-            border: "1px solid rgba(255,255,255,0.25)",
+            border: "1px solid var(--border)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
+            color: "var(--accent3)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
           }}>2</div>
-          <div style={{ color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-ui)", fontSize: 13 }}>
+          <div style={{ color: "var(--accent3)", fontFamily: "var(--font-ui)", fontSize: 13 }}>
             Add Cloud Accounts
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, opacity: 0.6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, opacity: 0.5 }}>
           <div style={{
             width: 28, height: 28, borderRadius: "50%",
-            border: "1px solid rgba(255,255,255,0.25)",
+            border: "1px solid var(--border)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
+            color: "var(--accent3)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
           }}>3</div>
-          <div style={{ color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-ui)", fontSize: 13 }}>
+          <div style={{ color: "var(--accent3)", fontFamily: "var(--font-ui)", fontSize: 13 }}>
             Run Your First Scan
           </div>
         </div>
@@ -177,17 +174,17 @@ export default function SetupPage({ onSetupComplete }) {
         {/* Info box */}
         <div style={{
           marginTop: "auto",
-          padding: "16px", borderRadius: 8,
-          background: "rgba(224,113,58,0.08)", border: "1px solid rgba(224,113,58,0.25)",
+          padding: "16px", borderRadius: "var(--radius)",
+          background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.15)",
         }}>
           <div style={{
             fontFamily: "var(--font-ui)", fontSize: 11, fontWeight: 700,
-            color: "#d97b3a", letterSpacing: "0.08em", marginBottom: 6,
+            color: "var(--orange)", letterSpacing: "0.08em", marginBottom: 6,
           }}>FIRST-TIME SETUP</div>
-          <div style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.7 }}>
+          <div style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--accent2)", lineHeight: 1.7 }}>
             No users exist yet. The account you create here will be the{" "}
-            <span style={{ color: "#e07070", fontWeight: 700 }}>superadmin</span>
-            {" "}— it has full control over users, roles, and platform settings.
+            <span style={{ color: "var(--magenta)", fontWeight: 700 }}>superadmin</span>
+            {" "}&mdash; it has full control over users, roles, and platform settings.
           </div>
         </div>
 
@@ -203,9 +200,8 @@ export default function SetupPage({ onSetupComplete }) {
           <div style={{ marginBottom: 32 }}>
             <h1 style={{
               fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800,
-              color: "var(--cyan)", margin: 0, letterSpacing: "0.06em",
-              textShadow: "var(--glow-cyan)",
-            }}>INITIALIZE SUPERADMIN</h1>
+              color: "var(--accent)", margin: 0, letterSpacing: "0.04em",
+            }}>Initialize Superadmin</h1>
             <p style={{
               fontFamily: "var(--font-ui)", fontSize: 13, color: "var(--accent3)",
               marginTop: 8, lineHeight: 1.6,
@@ -217,23 +213,23 @@ export default function SetupPage({ onSetupComplete }) {
 
           {/* Form card */}
           <div style={{
-            background: "var(--surface)", border: "1px solid rgba(0,212,255,0.2)",
-            borderRadius: 12, padding: "32px",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,255,0.04)",
+            background: "var(--card)", border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)", padding: "32px",
+            boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
           }}>
             {/* Superadmin badge */}
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 6,
               padding: "5px 10px", borderRadius: 5, marginBottom: 24,
-              background: "rgba(200,100,100,0.1)", border: "1px solid rgba(200,100,100,0.3)",
+              background: "rgba(232,67,147,0.08)", border: "1px solid rgba(232,67,147,0.2)",
             }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                   stroke="#e07070" strokeWidth="2.5">
+                   stroke="var(--magenta)" strokeWidth="2.5">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
               <span style={{
                 fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
-                color: "#e07070", letterSpacing: "0.1em",
+                color: "var(--magenta)", letterSpacing: "0.1em",
               }}>SUPERADMIN</span>
             </div>
 
@@ -268,32 +264,29 @@ export default function SetupPage({ onSetupComplete }) {
 
             {error && (
               <div style={{
-                padding: "9px 12px", borderRadius: 7, marginBottom: 16,
-                background: "rgba(224,85,85,0.08)", color: "#e05555",
-                border: "1px solid rgba(224,85,85,0.25)",
-                fontSize: 12, fontFamily: "var(--font-mono)",
+                padding: "10px 14px", borderRadius: "var(--radius)", marginBottom: 16,
+                background: "rgba(239,68,68,0.08)", color: "var(--red)",
+                border: "1px solid rgba(239,68,68,0.2)",
+                fontSize: 12, fontFamily: "var(--font-ui)",
               }}>{error}</div>
             )}
 
             <button
               onClick={handleCreate}
               disabled={loading}
-              className="neon-btn"
               onKeyDown={e => e.key === "Enter" && handleCreate()}
               style={{
                 width: "100%", padding: 13,
-                background: "transparent",
-                color: loading ? "rgba(0,212,255,0.4)" : "var(--cyan)",
-                border: `1px solid ${loading ? "rgba(0,212,255,0.2)" : "var(--cyan)"}`,
-                borderRadius: 7,
+                background: loading ? "transparent" : "var(--cyan)",
+                color: loading ? "var(--accent3)" : "#0e0c09",
+                border: loading ? "1px solid var(--border)" : "none",
+                borderRadius: "var(--radius)",
                 fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 13,
-                letterSpacing: "0.1em", cursor: loading ? "not-allowed" : "pointer",
-                textTransform: "uppercase", transition: "all 0.15s",
-                boxShadow: loading ? "none" : "var(--glow-cyan)",
-                textShadow: loading ? "none" : "0 0 8px rgba(0,212,255,0.6)",
+                letterSpacing: "0.04em", cursor: loading ? "not-allowed" : "pointer",
+                transition: "all 0.15s",
               }}
             >
-              {loading ? "Creating account..." : "Create Superadmin Account →"}
+              {loading ? "Creating account..." : "Create Superadmin Account"}
             </button>
           </div>
 

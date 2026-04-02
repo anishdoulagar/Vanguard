@@ -1,217 +1,8 @@
-import { useState, useEffect, useRef } from "react";
-
-// ── Animated particle-network background ──────────────────────────────────────
-function ParticleBackground() {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx    = canvas.getContext("2d");
-    let animId;
-
-    function resize() {
-      canvas.width  = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    resize();
-    window.addEventListener("resize", resize);
-
-    const COUNT = 70;
-    const MAX_DIST = 150;
-    const particles = Array.from({ length: COUNT }, () => ({
-      x:  Math.random() * window.innerWidth,
-      y:  Math.random() * window.innerHeight,
-      vx: (Math.random() - 0.5) * 0.35,
-      vy: (Math.random() - 0.5) * 0.35,
-      r:  Math.random() * 1.5 + 0.8,
-    }));
-
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // connections
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx   = particles[i].x - particles[j].x;
-          const dy   = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < MAX_DIST) {
-            const alpha = (1 - dist / MAX_DIST) * 0.25;
-            ctx.beginPath();
-            ctx.strokeStyle = `rgba(255,230,0,${alpha})`;
-            ctx.lineWidth   = 0.6;
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.stroke();
-          }
-        }
-      }
-
-      // dots + glow
-      for (const p of particles) {
-        // outer glow
-        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 6);
-        g.addColorStop(0, "rgba(255,230,0,0.12)");
-        g.addColorStop(1, "rgba(255,230,0,0)");
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r * 6, 0, Math.PI * 2);
-        ctx.fillStyle = g;
-        ctx.fill();
-
-        // core dot
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(255,230,0,0.7)";
-        ctx.fill();
-
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0) p.x = canvas.width;
-        if (p.x > canvas.width)  p.x = 0;
-        if (p.y < 0) p.y = canvas.height;
-        if (p.y > canvas.height) p.y = 0;
-      }
-
-      animId = requestAnimationFrame(draw);
-    }
-
-    draw();
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
-
-  return (
-    <canvas ref={canvasRef} style={{
-      position: "fixed", inset: 0, width: "100%", height: "100%",
-      zIndex: 0, pointerEvents: "none",
-    }} />
-  );
-}
+import { useState, useEffect } from "react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const S = {
-  page: {
-    display: "flex", alignItems: "center", justifyContent: "center",
-    minHeight: "100vh", padding: "40px 20px",
-    background: "var(--bg)",
-    position: "relative",
-    overflow: "hidden",
-  },
-  wrap: { width: "100%", maxWidth: "420px" },
-  logo: {
-    textAlign: "center", marginBottom: "36px",
-  },
-  logoTitle: {
-    fontFamily: "var(--font-display)", fontSize: "32px", fontWeight: 900,
-    color: "var(--cyan)", letterSpacing: "0.14em",
-    textShadow: "var(--glow-cyan)",
-  },
-  logoSub: {
-    color: "var(--accent3)", fontSize: "11px", marginTop: "8px",
-    fontFamily: "var(--font-mono)", letterSpacing: "0.18em",
-  },
-  card: {
-    background: "rgba(7,8,10,0.85)", border: "1px solid rgba(255,230,0,0.2)",
-    borderRadius: "14px", overflow: "hidden",
-    boxShadow: "0 24px 80px rgba(0,0,0,0.7), 0 0 60px rgba(255,230,0,0.05), inset 0 1px 0 rgba(255,230,0,0.08)",
-    backdropFilter: "blur(12px)",
-  },
-  tabs: { display: "flex", borderBottom: "1px solid var(--border)" },
-  tab: (active) => ({
-    flex: 1, padding: "14px",
-    background: active ? "rgba(0,212,255,0.05)" : "transparent",
-    border: "none", cursor: "pointer",
-    color: active ? "var(--cyan)" : "var(--accent3)",
-    fontFamily: "var(--font-ui)", fontWeight: active ? 700 : 500,
-    fontSize: "12px", letterSpacing: "0.1em", textTransform: "uppercase",
-    borderBottom: active ? "2px solid var(--cyan)" : "2px solid transparent",
-    transition: "all 0.15s",
-    textShadow: active ? "0 0 8px rgba(0,212,255,0.5)" : "none",
-  }),
-  form: { padding: "28px" },
-  label: {
-    display: "block", color: "var(--accent3)", fontSize: "10px",
-    letterSpacing: "0.12em", marginBottom: "6px",
-    fontFamily: "var(--font-ui)", fontWeight: 600, textTransform: "uppercase",
-  },
-  fieldWrap: { marginBottom: "16px" },
-  inputWrap: { position: "relative" },
-  input: {
-    width: "100%", background: "var(--card)",
-    border: "1px solid var(--border)", borderRadius: "7px",
-    padding: "10px 12px", color: "var(--accent)",
-    fontFamily: "var(--font-mono)", fontSize: "13px",
-    boxSizing: "border-box", outline: "none", transition: "border-color 0.15s",
-  },
-  inputWithBtn: {
-    paddingRight: "42px",
-  },
-  eyeBtn: {
-    position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)",
-    background: "none", border: "none", cursor: "pointer",
-    color: "var(--accent3)", padding: "0", display: "flex", alignItems: "center",
-    transition: "color 0.15s",
-  },
-  strengthBar: { display: "flex", gap: "4px", marginTop: "8px" },
-  strengthSeg: (filled, color) => ({
-    flex: 1, height: "3px", borderRadius: "2px",
-    background: filled ? color : "var(--border)", transition: "background 0.2s",
-  }),
-  strengthLabel: { fontSize: "10px", marginTop: "5px", fontFamily: "var(--font-ui)" },
-  error: {
-    padding: "9px 12px", borderRadius: "7px", marginBottom: "14px",
-    background: "rgba(224,85,85,0.08)", color: "#e05555",
-    border: "1px solid rgba(224,85,85,0.25)",
-    fontSize: "12px", fontFamily: "var(--font-mono)",
-  },
-  success: {
-    padding: "9px 12px", borderRadius: "7px", marginBottom: "14px",
-    background: "rgba(76,175,125,0.08)", color: "#4caf7d",
-    border: "1px solid rgba(76,175,125,0.25)",
-    fontSize: "12px", fontFamily: "var(--font-mono)",
-  },
-  btn: (loading) => ({
-    width: "100%", padding: "12px",
-    background: loading ? "rgba(0,212,255,0.15)" : "transparent",
-    color: loading ? "rgba(0,212,255,0.5)" : "var(--cyan)",
-    border: `1px solid ${loading ? "rgba(0,212,255,0.2)" : "var(--cyan)"}`,
-    borderRadius: "7px",
-    fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "13px",
-    letterSpacing: "0.14em", cursor: loading ? "not-allowed" : "pointer",
-    transition: "all 0.15s", textTransform: "uppercase",
-    boxShadow: loading ? "none" : "var(--glow-cyan)",
-    textShadow: loading ? "none" : "0 0 8px rgba(0,212,255,0.6)",
-  }),
-  hint: {
-    textAlign: "center", marginTop: "16px",
-    color: "var(--accent3)", fontSize: "12px", fontFamily: "var(--font-ui)",
-  },
-  link: { color: "var(--accent)", cursor: "pointer", fontWeight: 600 },
-  divider: {
-    display: "flex", alignItems: "center", gap: "12px",
-    margin: "18px 0", color: "var(--accent3)", fontSize: "11px",
-    fontFamily: "var(--font-ui)",
-  },
-  dividerLine: { flex: 1, height: "1px", background: "var(--border)" },
-  forgotLink: {
-    display: "block", textAlign: "right", marginTop: "-8px", marginBottom: "14px",
-    color: "var(--accent3)", fontSize: "11px", fontFamily: "var(--font-ui)",
-    cursor: "pointer", transition: "color 0.15s",
-  },
-  backLink: {
-    display: "flex", alignItems: "center", gap: "6px",
-    color: "var(--accent3)", fontSize: "12px", fontFamily: "var(--font-ui)",
-    cursor: "pointer", marginBottom: "20px", transition: "color 0.15s",
-  },
-};
-
 // ── Password strength ─────────────────────────────────────────────────────────
-
 function passwordStrength(pw) {
   if (!pw) return { level: 0, label: "", color: "" };
   let score = 0;
@@ -220,29 +11,28 @@ function passwordStrength(pw) {
   if (/[A-Z]/.test(pw)) score++;
   if (/[0-9]/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
-  if (score <= 1) return { level: 1, label: "Weak",   color: "#e05555" };
-  if (score <= 2) return { level: 2, label: "Fair",   color: "#d97b3a" };
-  if (score <= 3) return { level: 3, label: "Good",   color: "#c9a84c" };
-  if (score <= 4) return { level: 4, label: "Strong", color: "#4caf7d" };
-  return                { level: 5, label: "Very strong", color: "#4caf7d" };
+  if (score <= 1) return { level: 1, label: "Weak",        color: "var(--red)" };
+  if (score <= 2) return { level: 2, label: "Fair",        color: "var(--orange)" };
+  if (score <= 3) return { level: 3, label: "Good",        color: "var(--yellow)" };
+  if (score <= 4) return { level: 4, label: "Strong",      color: "var(--green)" };
+  return                { level: 5, label: "Very strong",  color: "var(--green)" };
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-
 function PasswordField({ label, value, onChange, showStrength = false }) {
   const [show, setShow] = useState(false);
   const strength = showStrength ? passwordStrength(value) : null;
 
   return (
-    <div style={S.fieldWrap}>
+    <div style={{ marginBottom: "16px" }}>
       <label style={S.label}>{label}</label>
-      <div style={S.inputWrap}>
+      <div style={{ position: "relative" }}>
         <input
           type={show ? "text" : "password"}
           placeholder="••••••••"
           value={value}
           onChange={e => onChange(e.target.value)}
-          style={{ ...S.input, ...S.inputWithBtn }}
+          style={{ ...S.input, paddingRight: "42px" }}
           autoComplete="off"
         />
         <button
@@ -260,12 +50,17 @@ function PasswordField({ label, value, onChange, showStrength = false }) {
       </div>
       {showStrength && value && (
         <>
-          <div style={S.strengthBar}>
+          <div style={{ display: "flex", gap: "4px", marginTop: "8px" }}>
             {[1,2,3,4,5].map(i => (
-              <div key={i} style={S.strengthSeg(strength.level >= i, strength.color)} />
+              <div key={i} style={{
+                flex: 1, height: "3px", borderRadius: "2px",
+                background: strength.level >= i ? strength.color : "var(--border)",
+                transition: "background 0.2s",
+              }} />
             ))}
           </div>
-          <div style={{ ...S.strengthLabel, color: strength.color }}>
+          <div style={{ fontSize: "10px", marginTop: "5px", color: strength.color,
+                        fontFamily: "var(--font-ui)" }}>
             {strength.label}
           </div>
         </>
@@ -276,7 +71,7 @@ function PasswordField({ label, value, onChange, showStrength = false }) {
 
 function TextField({ label, type = "text", placeholder, value, onChange }) {
   return (
-    <div style={S.fieldWrap}>
+    <div style={{ marginBottom: "16px" }}>
       <label style={S.label}>{label}</label>
       <input
         type={type} placeholder={placeholder}
@@ -287,10 +82,42 @@ function TextField({ label, type = "text", placeholder, value, onChange }) {
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────────
+// ── Styles ────────────────────────────────────────────────────────────────────
+const S = {
+  label: {
+    display: "block", color: "var(--accent3)", fontSize: "11px",
+    letterSpacing: "0.08em", marginBottom: "6px",
+    fontFamily: "var(--font-ui)", fontWeight: 600, textTransform: "uppercase",
+  },
+  input: {
+    width: "100%", background: "var(--surface)",
+    border: "1px solid var(--border)", borderRadius: "var(--radius)",
+    padding: "11px 14px", color: "var(--accent)",
+    fontFamily: "var(--font-mono)", fontSize: "13px",
+    boxSizing: "border-box", outline: "none", transition: "border-color 0.15s",
+  },
+  eyeBtn: {
+    position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)",
+    background: "none", border: "none", cursor: "pointer",
+    color: "var(--accent3)", padding: "0", display: "flex", alignItems: "center",
+    transition: "color 0.15s",
+  },
+  error: {
+    padding: "10px 14px", borderRadius: "var(--radius)", marginBottom: "14px",
+    background: "rgba(239,68,68,0.08)", color: "var(--red)",
+    border: "1px solid rgba(239,68,68,0.2)",
+    fontSize: "12px", fontFamily: "var(--font-ui)",
+  },
+  success: {
+    padding: "10px 14px", borderRadius: "var(--radius)", marginBottom: "14px",
+    background: "rgba(16,185,129,0.08)", color: "var(--green)",
+    border: "1px solid rgba(16,185,129,0.2)",
+    fontSize: "12px", fontFamily: "var(--font-ui)",
+  },
+};
 
+// ── Main Component ─────────────────────────────────────────────────────────────
 export default function AuthPage({ onAuth, initialResetToken = null, initialInviteToken = null }) {
-  // tab: "login" | "forgot" | "reset" | "invite"
   const initialTab = initialInviteToken ? "invite" : initialResetToken ? "reset" : "login";
   const [tab,         setTab]         = useState(initialTab);
   const [name,        setName]        = useState("");
@@ -304,9 +131,12 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
   const [success,     setSuccess]     = useState(null);
   const [resetToken,  setResetToken]  = useState(initialResetToken || "");
   const [inviteToken, setInviteToken] = useState(initialInviteToken || "");
-  const [inviteInfo,  setInviteInfo]  = useState(null); // { email, role } from /invite/:token
+  const [inviteInfo,  setInviteInfo]  = useState(null);
+  // MFA step state
+  const [mfaPending,  setMfaPending]  = useState(null); // {mfa_token}
+  const [mfaCode,     setMfaCode]     = useState("");
+  const [useBackup,   setUseBackup]   = useState(false);
 
-  // Validate invite token on mount
   useEffect(() => {
     if (initialInviteToken) {
       fetch(`${API}/invite/${initialInviteToken}`)
@@ -331,7 +161,6 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
 
   async function handleSubmit() {
     setError(null); setSuccess(null);
-
     if (tab === "login")  return handleLogin();
     if (tab === "forgot") return handleForgot();
     if (tab === "reset")  return handleReset();
@@ -348,6 +177,26 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
       });
       const data = await res.json();
       if (!res.ok) { setError(data.detail || "Login failed."); return; }
+      if (data.mfa_required) {
+        setMfaPending({ mfa_token: data.mfa_token });
+        setMfaCode(""); setUseBackup(false); setError(null);
+        return;
+      }
+      onAuth(data.token, data.user);
+    } catch { setError("Unable to connect. Please try again."); }
+    finally  { setLoading(false); }
+  }
+
+  async function handleMfaVerify() {
+    if (!mfaCode.trim()) { setError("Please enter your authentication code."); return; }
+    setLoading(true); setError(null);
+    try {
+      const res  = await fetch(`${API}/auth/mfa/verify`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mfa_token: mfaPending.mfa_token, code: mfaCode.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.detail || "Invalid code."); return; }
       onAuth(data.token, data.user);
     } catch { setError("Unable to connect. Please try again."); }
     finally  { setLoading(false); }
@@ -421,19 +270,108 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
     finally  { setLoading(false); }
   }
 
+  function renderMfaForm() {
+    return (
+      <div style={{ padding: "28px" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, marginBottom: 20,
+          padding: "12px 14px", borderRadius: 8,
+          background: "rgba(0,188,212,0.06)", border: "1px solid rgba(0,188,212,0.2)",
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="var(--cyan)" strokeWidth="2">
+            <rect x="5" y="11" width="14" height="10" rx="2"/>
+            <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+          </svg>
+          <span style={{ fontSize: 12, fontFamily: "var(--font-ui)", color: "var(--accent2)", lineHeight: 1.5 }}>
+            {useBackup
+              ? "Enter one of your 8-character backup codes."
+              : "Enter the 6-digit code from your authenticator app."}
+          </span>
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <label style={S.label}>{useBackup ? "BACKUP CODE" : "AUTHENTICATOR CODE"}</label>
+          <input
+            autoFocus
+            type="text"
+            inputMode={useBackup ? "text" : "numeric"}
+            placeholder={useBackup ? "XXXXXXXX" : "000000"}
+            maxLength={useBackup ? 8 : 6}
+            value={mfaCode}
+            onChange={e => setMfaCode(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleMfaVerify()}
+            style={{
+              ...S.input,
+              letterSpacing: "0.25em", textAlign: "center",
+              fontSize: 20, fontFamily: "var(--font-mono)",
+            }}
+          />
+        </div>
+
+        <span
+          onClick={() => { setUseBackup(b => !b); setMfaCode(""); setError(null); }}
+          style={{
+            display: "block", textAlign: "center", marginBottom: 16,
+            color: "var(--accent3)", fontSize: 12, fontFamily: "var(--font-ui)",
+            cursor: "pointer", transition: "color 0.15s",
+          }}
+          onMouseEnter={e => e.target.style.color = "var(--cyan)"}
+          onMouseLeave={e => e.target.style.color = "var(--accent3)"}
+        >
+          {useBackup ? "← Use authenticator app instead" : "Use a backup code instead"}
+        </span>
+
+        {error && <div style={S.error}>{error}</div>}
+
+        <button onClick={handleMfaVerify} disabled={loading} style={btnStyle(loading)}>
+          {loading ? "Verifying..." : "Verify"}
+        </button>
+
+        <span
+          onClick={() => { setMfaPending(null); setError(null); setMfaCode(""); }}
+          style={{
+            display: "block", textAlign: "center", marginTop: 14,
+            color: "var(--accent3)", fontSize: 12, fontFamily: "var(--font-ui)",
+            cursor: "pointer", transition: "color 0.15s",
+          }}
+          onMouseEnter={e => e.target.style.color = "var(--accent)"}
+          onMouseLeave={e => e.target.style.color = "var(--accent3)"}
+        >
+          ← Back to sign in
+        </span>
+      </div>
+    );
+  }
+
   // ── Render helpers ──────────────────────────────────────────────────────────
+
+  const btnStyle = (isLoading) => ({
+    width: "100%", padding: "12px",
+    background: isLoading ? "transparent" : "var(--cyan)",
+    color: isLoading ? "var(--accent3)" : "#0e0c09",
+    border: isLoading ? "1px solid var(--border)" : "none",
+    borderRadius: "var(--radius)",
+    fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "13px",
+    letterSpacing: "0.04em", cursor: isLoading ? "not-allowed" : "pointer",
+    transition: "all 0.15s",
+  });
 
   function renderLoginForm() {
     return (
-      <div style={S.form} onKeyDown={handleKeyDown}>
+      <div style={{ padding: "28px" }} onKeyDown={handleKeyDown}>
         <TextField label="Username" placeholder="your username"
                    value={username} onChange={setUsername} />
         <PasswordField label="Password" value={password} onChange={setPassword} />
 
         <span
-          style={S.forgotLink}
+          style={{
+            display: "block", textAlign: "right", marginTop: "-8px", marginBottom: "14px",
+            color: "var(--accent3)", fontSize: "12px", fontFamily: "var(--font-ui)",
+            cursor: "pointer", transition: "color 0.15s",
+          }}
           onClick={() => switchTab("forgot")}
-          onMouseEnter={e => e.target.style.color = "var(--accent)"}
+          onMouseEnter={e => e.target.style.color = "var(--cyan)"}
           onMouseLeave={e => e.target.style.color = "var(--accent3)"}
         >
           Forgot password?
@@ -442,8 +380,8 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
         {error   && <div style={S.error}>{error}</div>}
         {success && <div style={S.success}>{success}</div>}
 
-        <button onClick={handleSubmit} disabled={loading} className="neon-btn" style={S.btn(loading)}>
-          {loading ? "SIGNING IN..." : "SIGN IN →"}
+        <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
+          {loading ? "Signing in..." : "Sign In"}
         </button>
       </div>
     );
@@ -451,7 +389,7 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
 
   function renderSignupForm() {
     return (
-      <div style={S.form} onKeyDown={handleKeyDown}>
+      <div style={{ padding: "28px" }} onKeyDown={handleKeyDown}>
         <TextField label="Full Name" placeholder="Your name"
                    value={name} onChange={setName} />
         <TextField label="Username" placeholder="choose a username"
@@ -463,13 +401,17 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
         {error   && <div style={S.error}>{error}</div>}
         {success && <div style={S.success}>{success}</div>}
 
-        <button onClick={handleSubmit} disabled={loading} className="neon-btn" style={S.btn(loading)}>
-          {loading ? "CREATING ACCOUNT..." : "CREATE ACCOUNT →"}
+        <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
+          {loading ? "Creating account..." : "Create Account"}
         </button>
 
-        <p style={S.hint}>
+        <p style={{
+          textAlign: "center", marginTop: "16px",
+          color: "var(--accent3)", fontSize: "12px", fontFamily: "var(--font-ui)",
+        }}>
           Already have an account?{" "}
-          <span style={S.link} onClick={() => switchTab("login")}>Sign in</span>
+          <span style={{ color: "var(--cyan)", cursor: "pointer", fontWeight: 600 }}
+                onClick={() => switchTab("login")}>Sign in</span>
         </p>
       </div>
     );
@@ -477,11 +419,15 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
 
   function renderForgotForm() {
     return (
-      <div style={S.form} onKeyDown={handleKeyDown}>
+      <div style={{ padding: "28px" }} onKeyDown={handleKeyDown}>
         <span
-          style={S.backLink}
+          style={{
+            display: "flex", alignItems: "center", gap: "6px",
+            color: "var(--accent3)", fontSize: "12px", fontFamily: "var(--font-ui)",
+            cursor: "pointer", marginBottom: "20px", transition: "color 0.15s",
+          }}
           onClick={() => switchTab("login")}
-          onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
+          onMouseEnter={e => e.currentTarget.style.color = "var(--cyan)"}
           onMouseLeave={e => e.currentTarget.style.color = "var(--accent3)"}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -501,8 +447,8 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
         {error   && <div style={S.error}>{error}</div>}
         {success && <div style={S.success}>{success}</div>}
 
-        <button onClick={handleSubmit} disabled={loading} className="neon-btn" style={S.btn(loading)}>
-          {loading ? "SENDING..." : "SEND RESET LINK →"}
+        <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
+          {loading ? "Sending..." : "Send Reset Link"}
         </button>
       </div>
     );
@@ -510,7 +456,7 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
 
   function renderResetForm() {
     return (
-      <div style={S.form} onKeyDown={handleKeyDown}>
+      <div style={{ padding: "28px" }} onKeyDown={handleKeyDown}>
         <p style={{ color: "var(--accent3)", fontSize: "13px", marginTop: 0, marginBottom: "20px",
                     fontFamily: "var(--font-ui)", lineHeight: 1.6 }}>
           Enter your new password below.
@@ -521,12 +467,16 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
         {error   && <div style={S.error}>{error}</div>}
         {success && <div style={S.success}>{success}</div>}
 
-        <button onClick={handleSubmit} disabled={loading} className="neon-btn" style={S.btn(loading)}>
-          {loading ? "UPDATING..." : "SET NEW PASSWORD →"}
+        <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
+          {loading ? "Updating..." : "Set New Password"}
         </button>
 
-        <p style={S.hint}>
-          <span style={S.link} onClick={() => switchTab("login")}>Back to sign in</span>
+        <p style={{
+          textAlign: "center", marginTop: "16px",
+          color: "var(--accent3)", fontSize: "12px", fontFamily: "var(--font-ui)",
+        }}>
+          <span style={{ color: "var(--cyan)", cursor: "pointer", fontWeight: 600 }}
+                onClick={() => switchTab("login")}>Back to sign in</span>
         </p>
       </div>
     );
@@ -534,14 +484,14 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
 
   function renderInviteForm() {
     return (
-      <div style={S.form} onKeyDown={handleKeyDown}>
+      <div style={{ padding: "28px" }} onKeyDown={handleKeyDown}>
         {inviteInfo ? (
           <div style={{
-            padding: "10px 14px", borderRadius: 7, marginBottom: 20,
-            background: "rgba(255,230,0,0.05)", border: "1px solid rgba(255,230,0,0.2)",
-            fontFamily: "var(--font-ui)", fontSize: 12, color: "rgba(255,230,0,0.7)", lineHeight: 1.6,
+            padding: "12px 14px", borderRadius: "var(--radius)", marginBottom: 20,
+            background: "rgba(79,143,247,0.06)", border: "1px solid rgba(79,143,247,0.15)",
+            fontFamily: "var(--font-ui)", fontSize: 13, color: "var(--accent2)", lineHeight: 1.6,
           }}>
-            You've been invited as <strong style={{ color: "#ffe600" }}>{inviteInfo.role.toUpperCase()}</strong> for{" "}
+            You've been invited as <strong style={{ color: "var(--cyan)" }}>{inviteInfo.role.toUpperCase()}</strong> for{" "}
             <strong style={{ color: "var(--accent)" }}>{inviteInfo.email}</strong>.
             Set up your account below.
           </div>
@@ -556,8 +506,8 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
         {error   && <div style={S.error}>{error}</div>}
         {success && <div style={S.success}>{success}</div>}
 
-        <button onClick={handleSubmit} disabled={loading} className="neon-btn" style={S.btn(loading)}>
-          {loading ? "CREATING ACCOUNT..." : "COMPLETE SETUP →"}
+        <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
+          {loading ? "Creating account..." : "Complete Setup"}
         </button>
       </div>
     );
@@ -565,120 +515,105 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
 
   // ── Layout ──────────────────────────────────────────────────────────────────
 
+  // MFA step overrides everything
+  if (mfaPending) {
+    return (
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        minHeight: "100vh", padding: "40px 20px", background: "var(--bg)", position: "relative",
+      }}>
+        <div style={{ width: "100%", maxWidth: "420px", position: "relative", zIndex: 1 }}>
+          <div style={{ textAlign: "center", marginBottom: 36 }}>
+            <div style={{
+              fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 900,
+              color: "var(--cyan)", letterSpacing: "0.1em",
+            }}>VANGUARD</div>
+            <div style={{
+              color: "var(--accent3)", fontSize: 12, marginTop: 6,
+              fontFamily: "var(--font-ui)", letterSpacing: "0.06em",
+            }}>Two-Factor Authentication</div>
+          </div>
+          <div style={{
+            background: "var(--card)", border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)", overflow: "hidden",
+            boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
+          }}>
+            <div style={{
+              padding: "14px 28px", color: "var(--accent)", fontFamily: "var(--font-ui)",
+              fontWeight: 700, fontSize: 14, borderBottom: "1px solid var(--border)",
+            }}>Verify Identity</div>
+            {renderMfaForm()}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const isForgotOrReset = tab === "forgot" || tab === "reset" || tab === "invite";
 
+  const tabTitle = tab === "forgot" ? "Reset Password"
+    : tab === "reset" ? "New Password"
+    : tab === "invite" ? "Complete Invitation"
+    : "Sign In";
+
   return (
-    <div style={S.page}>
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "center",
+      minHeight: "100vh", padding: "40px 20px",
+      background: "var(--bg)", position: "relative",
+    }}>
 
-      {/* ── Animated particle background ── */}
-      <ParticleBackground />
-
-      {/* ── CSS grid overlay ── */}
+      {/* Subtle gradient blobs */}
       <div style={{
-        position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
-        backgroundImage: `
-          linear-gradient(rgba(255,230,0,0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,230,0,0.03) 1px, transparent 1px)
-        `,
-        backgroundSize: "60px 60px",
-      }} />
-
-      {/* ── Corner neon glows ── */}
-      <div style={{
-        position: "fixed", top: -120, left: -120, width: 400, height: 400,
-        background: "radial-gradient(circle, rgba(255,230,0,0.07) 0%, transparent 70%)",
-        zIndex: 0, pointerEvents: "none",
+        position: "fixed", top: "-20%", left: "-10%", width: "50%", height: "50%",
+        background: "radial-gradient(circle, rgba(79,143,247,0.06) 0%, transparent 70%)",
+        pointerEvents: "none",
       }} />
       <div style={{
-        position: "fixed", bottom: -100, right: -100, width: 500, height: 500,
-        background: "radial-gradient(circle, rgba(255,60,0,0.06) 0%, transparent 70%)",
-        zIndex: 0, pointerEvents: "none",
-      }} />
-      <div style={{
-        position: "fixed", top: "40%", right: -80, width: 300, height: 300,
-        background: "radial-gradient(circle, rgba(57,255,20,0.04) 0%, transparent 70%)",
-        zIndex: 0, pointerEvents: "none",
+        position: "fixed", bottom: "-10%", right: "-10%", width: "40%", height: "40%",
+        background: "radial-gradient(circle, rgba(139,92,246,0.04) 0%, transparent 70%)",
+        pointerEvents: "none",
       }} />
 
-      {/* ── Corner bracket decorations ── */}
-      {[
-        { top: 24, left: 24, borderTop: "1px solid", borderLeft: "1px solid" },
-        { top: 24, right: 24, borderTop: "1px solid", borderRight: "1px solid" },
-        { bottom: 24, left: 24, borderBottom: "1px solid", borderLeft: "1px solid" },
-        { bottom: 24, right: 24, borderBottom: "1px solid", borderRight: "1px solid" },
-      ].map((pos, i) => (
-        <div key={i} style={{
-          position: "fixed", width: 32, height: 32,
-          borderColor: "rgba(255,230,0,0.2)", zIndex: 1, pointerEvents: "none",
-          ...pos,
-        }} />
-      ))}
-
-      {/* ── System status tags ── */}
-      <div style={{
-        position: "fixed", bottom: 24, left: 0, right: 0,
-        display: "flex", justifyContent: "center", gap: 24,
-        zIndex: 1, pointerEvents: "none",
-      }}>
-        {["SYSTEM ONLINE", "ENCRYPTION ACTIVE", "MULTI-CLOUD READY"].map(label => (
-          <span key={label} style={{
-            fontFamily: "var(--font-mono)", fontSize: "9px",
-            color: "rgba(255,230,0,0.2)", letterSpacing: "0.2em",
-          }}>{label}</span>
-        ))}
-      </div>
-
-      <div style={{ ...S.wrap, position: "relative", zIndex: 2 }}>
+      <div style={{ width: "100%", maxWidth: "420px", position: "relative", zIndex: 1 }}>
 
         {/* Logo */}
-        <div style={S.logo}>
-          <div style={S.logoTitle}>VANGUARD</div>
-          <div style={S.logoSub}>
-            {tab === "forgot" ? "// PASSWORD RECOVERY" :
-             tab === "reset"  ? "// SET NEW PASSWORD"  :
-             tab === "invite" ? "// ACCOUNT SETUP"     :
-             "// CLOUD SECURITY POSTURE MANAGEMENT"}
+        <div style={{ textAlign: "center", marginBottom: "36px" }}>
+          <div style={{
+            fontFamily: "var(--font-display)", fontSize: "28px", fontWeight: 900,
+            color: "var(--cyan)", letterSpacing: "0.1em",
+          }}>VANGUARD</div>
+          <div style={{
+            color: "var(--accent3)", fontSize: "12px", marginTop: "6px",
+            fontFamily: "var(--font-ui)", letterSpacing: "0.06em",
+          }}>
+            {tab === "forgot" ? "Password Recovery" :
+             tab === "reset"  ? "Set New Password"  :
+             tab === "invite" ? "Account Setup"      :
+             "Cloud Security Posture Management"}
           </div>
         </div>
 
-
         {/* Card */}
-        <div style={S.card}>
+        <div style={{
+          background: "var(--card)", border: "1px solid var(--border)",
+          borderRadius: "var(--radius-lg)", overflow: "hidden",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
+        }}>
 
-          {/* Login header */}
-          {!isForgotOrReset && (
-            <div style={{
-              padding: "16px 28px",
-              color: "var(--cyan)", fontFamily: "var(--font-ui)",
-              fontWeight: 700, fontSize: "13px", letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              borderBottom: "1px solid rgba(0,212,255,0.15)",
-              textShadow: "0 0 8px rgba(0,212,255,0.5)",
-            }}>Sign In</div>
-          )}
-
-          {/* Forgot / Reset / Invite header */}
-          {isForgotOrReset && (
-            <div style={{
-              padding: "16px 28px",
-              color: "var(--cyan)", fontFamily: "var(--font-ui)",
-              fontWeight: 700, fontSize: "13px", letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              borderBottom: "1px solid rgba(0,212,255,0.15)",
-              textShadow: "0 0 8px rgba(0,212,255,0.5)",
-            }}>
-              {tab === "forgot" ? "Reset Password" :
-               tab === "invite" ? "Complete Invitation" :
-               "New Password"}
-            </div>
-          )}
+          {/* Tab header */}
+          <div style={{
+            padding: "14px 28px",
+            color: "var(--accent)", fontFamily: "var(--font-ui)",
+            fontWeight: 700, fontSize: "14px",
+            borderBottom: "1px solid var(--border)",
+          }}>{tabTitle}</div>
 
           {/* Forms */}
           {tab === "login"  && renderLoginForm()}
           {tab === "forgot" && renderForgotForm()}
           {tab === "reset"  && renderResetForm()}
           {tab === "invite" && renderInviteForm()}
-
         </div>
       </div>
     </div>

@@ -42,3 +42,13 @@ def decrypt_credentials(encrypted: str) -> dict:
     """
     plaintext = _get_fernet().decrypt(encrypted.encode())
     return json.loads(plaintext)
+
+
+def encrypt_mfa_secret(secret: str) -> str:
+    """Encrypt a TOTP secret for storage."""
+    return _get_fernet().encrypt(secret.encode()).decode()
+
+
+def decrypt_mfa_secret(encrypted: str) -> str:
+    """Decrypt a stored TOTP secret."""
+    return _get_fernet().decrypt(encrypted.encode()).decode()

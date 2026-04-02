@@ -246,4 +246,35 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_log_user    ON audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+
+-- ── Teams ────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS teams (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT        NOT NULL UNIQUE,
+    description TEXT        NOT NULL DEFAULT '',
+    created_by  UUID        REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS team_members (
+    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    team_id    UUID        NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    added_by   UUID        REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (team_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id);
+
+-- Add team_id to cloud_accounts (idempotent)
+DO $$ BEGIN
+  ALTER TABLE cloud_accounts ADD COLUMN team_id UUID REFERENCES teams(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
+
+-- MFA (TOTP-based two-factor authentication)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_enabled      BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_secret       TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_backup_codes JSONB;
 """
