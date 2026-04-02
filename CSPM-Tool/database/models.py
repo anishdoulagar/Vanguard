@@ -44,7 +44,8 @@ async def get_user_by_username(conn, username: str) -> Optional[dict]:
 async def get_user_by_id(conn, user_id: str) -> Optional[dict]:
     row = await conn.fetchrow(
         """
-        SELECT id, email, name, username, is_admin, role, is_active, valid_until, created_at
+        SELECT id, email, name, username, is_admin, role, is_active, valid_until,
+               created_at, mfa_enabled
         FROM users WHERE id = $1
         """,
         user_id
@@ -175,31 +176,65 @@ async def mark_reset_token_used(conn, token_id: str) -> None:
 async def create_account(conn, user_id: str, name: str, cloud: str,
                          encrypted_creds: str, region: Optional[str],
                          scan_interval_hours: int,
-                         category: str = "General") -> dict:
+                         category: str = "General",
+                         team_id: Optional[str] = None) -> dict:
     row = await conn.fetchrow(
         """
         INSERT INTO cloud_accounts
-            (user_id, name, cloud, encrypted_creds, region, scan_interval_hours, category)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+            (user_id, name, cloud, encrypted_creds, region, scan_interval_hours, category, team_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id, user_id, name, cloud, region, scan_interval_hours,
-                  last_scanned_at, created_at, category
+                  last_scanned_at, created_at, category, team_id
         """,
-        user_id, name, cloud, encrypted_creds, region, scan_interval_hours, category
+        user_id, name, cloud, encrypted_creds, region, scan_interval_hours, category, team_id
     )
     return dict(row)
 
 
-async def get_accounts_for_user(conn, user_id: str) -> list:
-    """Returns all cloud accounts in the system (shared across all team members)."""
-    rows = await conn.fetch(
-        """
-        SELECT id, user_id, name, cloud, region, scan_interval_hours,
-               last_scanned_at, created_at, category
-        FROM cloud_accounts
-        ORDER BY category ASC, created_at ASC
-        """
-    )
+async def get_accounts_for_user(conn, user_id: str, role: str = "analyst") -> list:
+    """Returns cloud accounts scoped by team membership.
+    superadmin sees all accounts; others see only accounts in their teams.
+    """
+    if role == "superadmin":
+        rows = await conn.fetch(
+            """
+            SELECT ca.id, ca.user_id, ca.name, ca.cloud, ca.region,
+                   ca.scan_interval_hours, ca.last_scanned_at, ca.created_at,
+                   ca.category, ca.team_id, t.name AS team_name
+            FROM cloud_accounts ca
+            LEFT JOIN teams t ON t.id = ca.team_id
+            ORDER BY ca.category ASC, ca.created_at ASC
+            """
+        )
+    else:
+        rows = await conn.fetch(
+            """
+            SELECT ca.id, ca.user_id, ca.name, ca.cloud, ca.region,
+                   ca.scan_interval_hours, ca.last_scanned_at, ca.created_at,
+                   ca.category, ca.team_id, t.name AS team_name
+            FROM cloud_accounts ca
+            LEFT JOIN teams t ON t.id = ca.team_id
+            WHERE ca.team_id IN (
+                SELECT team_id FROM team_members WHERE user_id = $1
+            )
+            ORDER BY ca.category ASC, ca.created_at ASC
+            """,
+            user_id
+        )
     return [dict(r) for r in rows]
+
+
+async def update_account_team(conn, account_id: str, team_id: Optional[str]) -> Optional[dict]:
+    """Move an account to a different team (or unassign with team_id=None)."""
+    row = await conn.fetchrow(
+        """
+        UPDATE cloud_accounts SET team_id = $1 WHERE id = $2
+        RETURNING id, name, cloud, region, scan_interval_hours,
+                  last_scanned_at, created_at, category, team_id
+        """,
+        team_id, account_id
+    )
+    return dict(row) if row else None
 
 
 async def get_account(conn, account_id: str, user_id: str = None) -> Optional[dict]:
@@ -298,9 +333,24 @@ async def save_scan_result(conn, user_id: str, account_id: Optional[str],
 async def get_scans_for_user(conn, user_id: str,
                               account_id: Optional[str] = None,
                               limit: int = 20,
-                              since=None) -> list:
-    """Returns all scans system-wide (shared across team members). user_id unused but kept for API compat."""
+                              since=None,
+                              role: str = "analyst") -> list:
+    """Returns scans scoped to the user's team accounts.
+    superadmin sees all scans; others see only scans for accounts in their teams."""
+
     if account_id:
+        # For a specific account, verify the non-superadmin user has team access first
+        if role != "superadmin":
+            accessible = await conn.fetchval(
+                """
+                SELECT 1 FROM cloud_accounts
+                WHERE id = $1
+                AND team_id IN (SELECT team_id FROM team_members WHERE user_id = $2)
+                """,
+                account_id, user_id,
+            )
+            if not accessible:
+                return []
         if since:
             rows = await conn.fetch(
                 """
@@ -311,7 +361,7 @@ async def get_scans_for_user(conn, user_id: str,
                 ORDER BY created_at DESC
                 LIMIT $3
                 """,
-                account_id, since, limit
+                account_id, since, limit,
             )
         else:
             rows = await conn.fetch(
@@ -323,9 +373,9 @@ async def get_scans_for_user(conn, user_id: str,
                 ORDER BY created_at DESC
                 LIMIT $2
                 """,
-                account_id, limit
+                account_id, limit,
             )
-    else:
+    elif role == "superadmin":
         if since:
             rows = await conn.fetch(
                 """
@@ -338,7 +388,7 @@ async def get_scans_for_user(conn, user_id: str,
                 ORDER BY sr.created_at DESC
                 LIMIT $2
                 """,
-                since, limit
+                since, limit,
             )
         else:
             rows = await conn.fetch(
@@ -351,7 +401,44 @@ async def get_scans_for_user(conn, user_id: str,
                 ORDER BY sr.created_at DESC
                 LIMIT $1
                 """,
-                limit
+                limit,
+            )
+    else:
+        # Non-superadmin: restrict to team-accessible accounts
+        if since:
+            rows = await conn.fetch(
+                """
+                SELECT sr.id, sr.user_id, sr.account_id, sr.cloud, sr.scores,
+                       sr.resources_scanned, sr.finding_counts, sr.triggered_by,
+                       sr.created_at, ca.name AS account_name
+                FROM scan_results sr
+                LEFT JOIN cloud_accounts ca ON ca.id = sr.account_id
+                WHERE sr.created_at >= $1
+                AND sr.account_id IN (
+                    SELECT id FROM cloud_accounts
+                    WHERE team_id IN (SELECT team_id FROM team_members WHERE user_id = $2)
+                )
+                ORDER BY sr.created_at DESC
+                LIMIT $3
+                """,
+                since, user_id, limit,
+            )
+        else:
+            rows = await conn.fetch(
+                """
+                SELECT sr.id, sr.user_id, sr.account_id, sr.cloud, sr.scores,
+                       sr.resources_scanned, sr.finding_counts, sr.triggered_by,
+                       sr.created_at, ca.name AS account_name
+                FROM scan_results sr
+                LEFT JOIN cloud_accounts ca ON ca.id = sr.account_id
+                WHERE sr.account_id IN (
+                    SELECT id FROM cloud_accounts
+                    WHERE team_id IN (SELECT team_id FROM team_members WHERE user_id = $1)
+                )
+                ORDER BY sr.created_at DESC
+                LIMIT $2
+                """,
+                user_id, limit,
             )
     return [_deserialise_scan(dict(r)) for r in rows]
 
@@ -633,3 +720,190 @@ async def get_audit_log(conn, user_id: str, is_superadmin: bool = False, limit: 
             user_id, limit,
         )
     return [dict(r) for r in rows]
+
+
+# ── Teams ─────────────────────────────────────────────────────────────────────
+
+async def create_team(conn, name: str, description: str, created_by: str) -> dict:
+    row = await conn.fetchrow(
+        """
+        INSERT INTO teams (name, description, created_by)
+        VALUES ($1, $2, $3)
+        RETURNING id, name, description, created_by, created_at
+        """,
+        name, description, created_by
+    )
+    return dict(row)
+
+
+async def get_all_teams(conn) -> list:
+    """All teams with member_count and account_count."""
+    rows = await conn.fetch(
+        """
+        SELECT t.id, t.name, t.description, t.created_by, t.created_at,
+               COUNT(DISTINCT tm.user_id) AS member_count,
+               COUNT(DISTINCT ca.id)      AS account_count
+        FROM teams t
+        LEFT JOIN team_members tm ON tm.team_id = t.id
+        LEFT JOIN cloud_accounts ca ON ca.team_id = t.id
+        GROUP BY t.id
+        ORDER BY t.created_at ASC
+        """
+    )
+    return [dict(r) for r in rows]
+
+
+async def get_teams_for_user(conn, user_id: str) -> list:
+    """Teams the user belongs to, with member/account counts."""
+    rows = await conn.fetch(
+        """
+        SELECT t.id, t.name, t.description, t.created_by, t.created_at,
+               COUNT(DISTINCT tm2.user_id) AS member_count,
+               COUNT(DISTINCT ca.id)       AS account_count
+        FROM teams t
+        JOIN team_members tm ON tm.team_id = t.id AND tm.user_id = $1
+        LEFT JOIN team_members tm2 ON tm2.team_id = t.id
+        LEFT JOIN cloud_accounts ca ON ca.team_id = t.id
+        GROUP BY t.id
+        ORDER BY t.created_at ASC
+        """,
+        user_id
+    )
+    return [dict(r) for r in rows]
+
+
+async def get_team(conn, team_id: str) -> Optional[dict]:
+    row = await conn.fetchrow(
+        """
+        SELECT t.id, t.name, t.description, t.created_by, t.created_at,
+               COUNT(DISTINCT tm.user_id) AS member_count,
+               COUNT(DISTINCT ca.id)      AS account_count
+        FROM teams t
+        LEFT JOIN team_members tm ON tm.team_id = t.id
+        LEFT JOIN cloud_accounts ca ON ca.team_id = t.id
+        WHERE t.id = $1
+        GROUP BY t.id
+        """,
+        team_id
+    )
+    return dict(row) if row else None
+
+
+async def update_team(conn, team_id: str, name: str, description: str) -> Optional[dict]:
+    row = await conn.fetchrow(
+        """
+        UPDATE teams SET name = $1, description = $2
+        WHERE id = $3
+        RETURNING id, name, description, created_by, created_at
+        """,
+        name, description, team_id
+    )
+    return dict(row) if row else None
+
+
+async def delete_team(conn, team_id: str) -> bool:
+    result = await conn.execute("DELETE FROM teams WHERE id = $1", team_id)
+    return result.split()[-1] != "0"
+
+
+async def get_team_members(conn, team_id: str) -> list:
+    """Team members with user details."""
+    rows = await conn.fetch(
+        """
+        SELECT tm.id, tm.team_id, tm.user_id, tm.added_by, tm.created_at,
+               u.name, u.email, u.username, u.role, u.is_active
+        FROM team_members tm
+        JOIN users u ON u.id = tm.user_id
+        WHERE tm.team_id = $1
+        ORDER BY tm.created_at ASC
+        """,
+        team_id
+    )
+    return [dict(r) for r in rows]
+
+
+async def add_team_member(conn, team_id: str, user_id: str, added_by: str) -> dict:
+    row = await conn.fetchrow(
+        """
+        INSERT INTO team_members (team_id, user_id, added_by)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (team_id, user_id) DO NOTHING
+        RETURNING id, team_id, user_id, added_by, created_at
+        """,
+        team_id, user_id, added_by
+    )
+    if row is None:
+        # Already a member — fetch existing
+        row = await conn.fetchrow(
+            "SELECT id, team_id, user_id, added_by, created_at FROM team_members WHERE team_id=$1 AND user_id=$2",
+            team_id, user_id
+        )
+    return dict(row)
+
+
+async def remove_team_member(conn, team_id: str, user_id: str) -> bool:
+    result = await conn.execute(
+        "DELETE FROM team_members WHERE team_id = $1 AND user_id = $2",
+        team_id, user_id
+    )
+    return result.split()[-1] != "0"
+
+
+async def is_member_of_team(conn, team_id: str, user_id: str) -> bool:
+    row = await conn.fetchrow(
+        "SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2",
+        team_id, user_id
+    )
+    return row is not None
+
+
+async def get_user_team_ids(conn, user_id: str) -> list:
+    """Returns list of team UUID strings the user belongs to."""
+    rows = await conn.fetch(
+        "SELECT team_id FROM team_members WHERE user_id = $1",
+        user_id
+    )
+    return [str(r["team_id"]) for r in rows]
+
+
+# ── MFA ───────────────────────────────────────────────────────────────────────
+
+async def get_user_mfa(conn, user_id: str) -> Optional[dict]:
+    """Returns mfa_enabled, mfa_secret (encrypted), and mfa_backup_codes for a user."""
+    row = await conn.fetchrow(
+        "SELECT mfa_enabled, mfa_secret, mfa_backup_codes FROM users WHERE id = $1",
+        user_id,
+    )
+    return dict(row) if row else None
+
+
+async def save_mfa_secret(conn, user_id: str, encrypted_secret: str) -> None:
+    """Store the pending TOTP secret without enabling MFA yet (verified in verify-setup)."""
+    await conn.execute(
+        "UPDATE users SET mfa_secret = $1 WHERE id = $2",
+        encrypted_secret, user_id,
+    )
+
+
+async def enable_mfa(conn, user_id: str, backup_codes_json: str) -> None:
+    """Enable MFA and store hashed backup codes after TOTP verification."""
+    await conn.execute(
+        "UPDATE users SET mfa_enabled = true, mfa_backup_codes = $1::jsonb WHERE id = $2",
+        backup_codes_json, user_id,
+    )
+
+
+async def disable_mfa(conn, user_id: str) -> None:
+    """Disable MFA and clear all MFA data."""
+    await conn.execute(
+        "UPDATE users SET mfa_enabled = false, mfa_secret = null, mfa_backup_codes = null WHERE id = $1",
+        user_id,
+    )
+
+
+async def update_mfa_backup_codes(conn, user_id: str, backup_codes_json: str) -> None:
+    """Replace backup codes after one is consumed."""
+    await conn.execute(
+        "UPDATE users SET mfa_backup_codes = $1::jsonb WHERE id = $2",
+        backup_codes_json, user_id,
+    )

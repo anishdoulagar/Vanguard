@@ -55,15 +55,16 @@ function ResourceDrawer({ resources, cleanCount, totalCount, onClose }) {
     <div style={{
       position: "fixed", inset: 0, zIndex: 200,
       display: "flex",
+      animation: "overlayIn 0.2s ease-out",
     }}>
       <div onClick={onClose} style={{ flex: 1, background: "rgba(0,0,0,0.6)" }} />
       <div style={{
         width: "480px", background: "var(--surface)",
         borderLeft: "1px solid var(--border)",
         display: "flex", flexDirection: "column",
-        animation: "slideIn 0.2s ease",
+        animation: "slideIn 0.25s cubic-bezier(0.23, 1, 0.32, 1)",
       }}>
-        <style>{`@keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
+        <style>{`@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
 
         {/* Header */}
         <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)",
@@ -366,7 +367,7 @@ export default function ResultsPage({ result, onNewScan }) {
             padding: "8px 16px", background: "transparent", color: "var(--cyan)",
             border: "1px solid var(--cyan)", borderRadius: "6px", fontFamily: "var(--font-ui)",
             fontWeight: 700, fontSize: "12px", cursor: "pointer",
-            boxShadow: "var(--glow-cyan)", textShadow: "0 0 6px rgba(255,230,0,0.5)",
+            boxShadow: "var(--glow-cyan)",
           }}>NEW SCAN</button>
         </div>
       </div>
@@ -561,7 +562,7 @@ export default function ResultsPage({ result, onNewScan }) {
                 {["ALL","aws","azure"].map(c => (
                   <button key={c} onClick={() => setCloudFilter(c)} style={{
                     padding: "6px 10px", border: "none", cursor: "pointer",
-                    background: cloudFilter === c ? "rgba(255,230,0,0.1)" : "transparent",
+                    background: cloudFilter === c ? "rgba(79,143,247,0.08)" : "transparent",
                     color:      cloudFilter === c ? "var(--cyan)"        : "var(--accent3)",
                     borderBottom: cloudFilter === c ? "2px solid var(--cyan)" : "2px solid transparent",
                     fontFamily: "var(--font-ui)", fontSize: "11px", fontWeight: 600,

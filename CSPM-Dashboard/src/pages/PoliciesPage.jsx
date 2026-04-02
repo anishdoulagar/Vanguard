@@ -295,7 +295,7 @@ export default function PoliciesPage({ role }) {
             border: "1px solid var(--cyan)", borderRadius: "6px", padding: "9px 20px",
             fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "13px",
             cursor: "pointer", letterSpacing: "0.08em", whiteSpace: "nowrap",
-            boxShadow: "var(--glow-cyan)", textShadow: "0 0 6px rgba(255,230,0,0.5)",
+            boxShadow: "var(--glow-cyan)",
           }}>
             + ADD CUSTOM RULE
           </button>
@@ -390,7 +390,7 @@ export default function PoliciesPage({ role }) {
           {CLOUD_OPTIONS.map(c => (
             <button key={c} onClick={() => setCloudFilter(c)} style={{
               padding: "8px 14px", border: "none", cursor: "pointer",
-              background: cloudFilter === c ? "rgba(255,230,0,0.1)" : "transparent",
+              background: cloudFilter === c ? "rgba(79,143,247,0.08)" : "transparent",
               color:      cloudFilter === c ? "var(--cyan)"        : "var(--accent3)",
               borderBottom: cloudFilter === c ? "2px solid var(--cyan)" : "2px solid transparent",
               fontFamily: "var(--font-ui)", fontWeight: 600, fontSize: "11px",
@@ -617,13 +617,15 @@ export default function PoliciesPage({ role }) {
             background: "rgba(0,0,0,0.8)",
             display: "flex", alignItems: "center", justifyContent: "center",
             zIndex: 1000,
+            animation: "overlayIn 0.2s ease-out",
           }}
           onClick={e => e.target === e.currentTarget && handleModalClose()}
         >
           <div style={{
             background:   "var(--surface)",
-            border:       "1px solid #2a2d35",
+            border:       "1px solid var(--border)",
             borderRadius: "12px",
+            animation:    "modalIn 0.25s cubic-bezier(0.23, 1, 0.32, 1)",
             padding:      "32px",
             width:        "540px",
             maxHeight:    "90vh",
@@ -741,8 +743,8 @@ export default function PoliciesPage({ role }) {
             <div style={{ display:"flex", gap:"12px" }}>
               <button onClick={handleSaveRule} disabled={saving} className="neon-btn" style={{
                 flex: 1, background: "transparent",
-                color: saving ? "rgba(255,230,0,0.4)" : "var(--cyan)",
-                border: `1px solid ${saving ? "rgba(255,230,0,0.2)" : "var(--cyan)"}`,
+                color: saving ? "var(--accent3)" : "var(--cyan)",
+                border: `1px solid ${saving ? "var(--border)" : "var(--cyan)"}`,
                 borderRadius: "6px", padding: "10px",
                 fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "13px",
                 cursor: saving ? "not-allowed" : "pointer",

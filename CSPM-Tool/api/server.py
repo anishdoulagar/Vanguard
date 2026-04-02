@@ -29,7 +29,7 @@ from database.models import (
     create_reset_token, get_reset_token, mark_reset_token_used,
     create_account, get_accounts_for_user, get_account,
     get_account_with_creds, update_account, delete_account,
-    update_account_last_scanned,
+    update_account_last_scanned, update_account_team,
     save_scan_result, get_scans_for_user, get_scan_by_id,
     upsert_finding_status, get_finding_statuses_for_user,
     get_all_users, get_platform_stats,
@@ -41,11 +41,15 @@ from database.models import (
     log_action, get_audit_log,
     get_user_by_username,
     create_invite_token, get_invite_token, mark_invite_used,
+    create_team, get_all_teams, get_teams_for_user, get_team,
+    update_team, delete_team, get_team_members, add_team_member,
+    remove_team_member, is_member_of_team, get_user_team_ids,
+    get_user_mfa, save_mfa_secret, enable_mfa, disable_mfa, update_mfa_backup_codes,
 )
 from auth.password     import hash_password, verify_password
-from auth.jwt_handler  import create_token
+from auth.jwt_handler  import create_token, create_mfa_pending_token, decode_mfa_pending_token
 from auth.dependencies import get_current_user, require_admin, require_role
-from auth.encryption   import encrypt_credentials, decrypt_credentials
+from auth.encryption   import encrypt_credentials, decrypt_credentials, encrypt_mfa_secret, decrypt_mfa_secret
 from connectors.aws_connector   import AWSConnector
 from connectors.azure_connector import AzureConnector
 from translator.normalizer      import normalize_all
@@ -180,6 +184,7 @@ class CreateAccountRequest(BaseModel):
     cloud:               str
     scan_interval_hours: float = 24
     category:            Optional[str] = "General"
+    team_id:             Optional[str] = None
     access_key_id:       Optional[str] = None
     secret_access_key:   Optional[str] = None
     region:              Optional[str] = "us-east-1"
@@ -187,6 +192,24 @@ class CreateAccountRequest(BaseModel):
     tenant_id:           Optional[str] = None
     client_id:           Optional[str] = None
     client_secret:       Optional[str] = None
+
+
+class CreateTeamRequest(BaseModel):
+    name:        str
+    description: str = ""
+
+
+class UpdateTeamRequest(BaseModel):
+    name:        str
+    description: str = ""
+
+
+class AddTeamMemberRequest(BaseModel):
+    user_id: str
+
+
+class MoveAccountTeamRequest(BaseModel):
+    team_id: Optional[str] = None
 
 class UpdateAccountRequest(BaseModel):
     name:                str
@@ -272,6 +295,7 @@ def _user_response(user: dict, token: str) -> dict:
             "role":        user.get("role", "analyst"),
             "is_active":   user.get("is_active", True),
             "valid_until": user["valid_until"].isoformat() if user.get("valid_until") else None,
+            "mfa_enabled": user.get("mfa_enabled", False),
         },
     }
 
@@ -403,6 +427,18 @@ async def _run_scan_engine(cloud: str, aws_creds: dict = None,
     }
 
 
+# ── In-process scan tracking ─────────────────────────────────────────────────
+# Tracks account IDs currently being manually scanned in this process.
+# Complements the scheduler's `is_running` DB flag for scheduled scans.
+_scanning_accounts: set[str] = set()
+
+def _mark_scanning(account_id: str) -> None:
+    _scanning_accounts.add(account_id)
+
+def _unmark_scanning(account_id: str) -> None:
+    _scanning_accounts.discard(account_id)
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -468,6 +504,11 @@ async def login(req: LoginRequest, request: Request, conn=Depends(get_conn)):
         if datetime.now(timezone.utc) > valid_until:
             raise HTTPException(status_code=403, detail="Your account access has expired. Contact your administrator.")
 
+    # MFA check: if enabled, issue a short-lived pending token instead of a full JWT
+    if user.get("mfa_enabled"):
+        mfa_token = create_mfa_pending_token(str(user["id"]))
+        return {"mfa_required": True, "mfa_token": mfa_token}
+
     token = create_token(str(user["id"]), user["email"],
                          user["is_admin"], user.get("role", "analyst"))
     try:
@@ -482,7 +523,176 @@ async def login(req: LoginRequest, request: Request, conn=Depends(get_conn)):
 async def get_me(user: dict = Depends(get_current_user)):
     return {"id": str(user["id"]), "email": user["email"],
             "name": user["name"], "is_admin": user["is_admin"],
-            "role": user.get("role", "analyst")}
+            "role": user.get("role", "analyst"),
+            "mfa_enabled": user.get("mfa_enabled", False)}
+
+
+# ── MFA ────────────────────────────────────────────────────────────────────────
+
+class MfaVerifyRequest(BaseModel):
+    mfa_token: str
+    code:      str
+
+class MfaVerifySetupRequest(BaseModel):
+    code: str
+
+class MfaDisableRequest(BaseModel):
+    code: str
+
+
+@app.post("/auth/mfa/verify")
+async def mfa_verify(req: MfaVerifyRequest, request: Request, conn=Depends(get_conn)):
+    """
+    Second step of login when MFA is enabled.
+    Accepts a TOTP code (6 digits) or a backup code (8 hex chars).
+    Returns a full JWT on success.
+    """
+    import pyotp, json as _json
+
+    payload = decode_mfa_pending_token(req.mfa_token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired MFA session. Please sign in again.")
+
+    user_id = payload["sub"]
+    user    = await get_user_by_id(conn, user_id)
+    if not user or not user.get("is_active", True):
+        raise HTTPException(status_code=401, detail="User not found or account disabled.")
+
+    mfa_data = await get_user_mfa(conn, user_id)
+    if not mfa_data or not mfa_data.get("mfa_enabled") or not mfa_data.get("mfa_secret"):
+        raise HTTPException(status_code=400, detail="MFA not configured for this account.")
+
+    secret = decrypt_mfa_secret(mfa_data["mfa_secret"])
+    code   = req.code.strip().replace(" ", "").replace("-", "")
+
+    # Try TOTP (6-digit numeric)
+    totp_ok = pyotp.TOTP(secret).verify(code, valid_window=1)
+
+    if not totp_ok:
+        # Try backup codes
+        raw_codes = mfa_data.get("mfa_backup_codes")
+        backup_codes: list = (
+            _json.loads(raw_codes) if isinstance(raw_codes, str) else (raw_codes or [])
+        )
+        matched_idx = next(
+            (i for i, h in enumerate(backup_codes) if verify_password(code.upper(), h)),
+            None,
+        )
+        if matched_idx is None:
+            raise HTTPException(status_code=401, detail="Invalid MFA code.")
+        # Consume the backup code
+        backup_codes.pop(matched_idx)
+        await update_mfa_backup_codes(conn, user_id, _json.dumps(backup_codes))
+
+    token = create_token(user_id, user["email"], user["is_admin"], user.get("role", "analyst"))
+    try:
+        await log_action(conn, user_id, user["email"], "login",
+                         ip_address=request.client.host if request.client else None)
+    except Exception:
+        pass
+    return _user_response(user, token)
+
+
+@app.get("/auth/mfa/status")
+async def mfa_status(user=Depends(get_current_user)):
+    return {"mfa_enabled": user.get("mfa_enabled", False)}
+
+
+@app.post("/auth/mfa/setup")
+async def mfa_setup(user=Depends(get_current_user), conn=Depends(get_conn)):
+    """
+    Generate a new TOTP secret for the user and return a QR code (base64 PNG).
+    MFA is NOT enabled yet — call /auth/mfa/verify-setup to complete.
+    """
+    import pyotp, qrcode, io, base64
+
+    secret   = pyotp.random_base32()
+    issuer   = "VANGUARD CSPM"
+    otp_uri  = pyotp.totp.TOTP(secret).provisioning_uri(
+        name=user["email"], issuer_name=issuer
+    )
+
+    # Generate QR code as base64 PNG (server-side, secret never sent to third party)
+    qr = qrcode.QRCode(box_size=6, border=2)
+    qr.add_data(otp_uri)
+    qr.make(fit=True)
+    img    = qr.make_image(fill_color="black", back_color="white")
+    buf    = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    # Store pending secret (mfa_enabled stays false until verify-setup)
+    await save_mfa_secret(conn, str(user["id"]), encrypt_mfa_secret(secret))
+
+    return {
+        "secret":  secret,          # for manual entry in authenticator app
+        "qr_code": qr_b64,          # base64 PNG — display as <img src="data:image/png;base64,...">
+        "otp_uri": otp_uri,
+    }
+
+
+@app.post("/auth/mfa/verify-setup")
+async def mfa_verify_setup(
+    req: MfaVerifySetupRequest,
+    user=Depends(get_current_user),
+    conn=Depends(get_conn),
+):
+    """
+    Confirm the user scanned the QR and can produce a valid TOTP code.
+    Enables MFA and returns 8 one-time backup codes (shown once, never again).
+    """
+    import pyotp, json as _json, secrets as _secrets
+
+    mfa_data = await get_user_mfa(conn, str(user["id"]))
+    if not mfa_data or not mfa_data.get("mfa_secret"):
+        raise HTTPException(status_code=400, detail="Call /auth/mfa/setup first.")
+
+    secret = decrypt_mfa_secret(mfa_data["mfa_secret"])
+    if not pyotp.TOTP(secret).verify(req.code.strip(), valid_window=1):
+        raise HTTPException(status_code=400, detail="Invalid code. Check your authenticator app.")
+
+    # Generate 8 backup codes: format XXXXXXXX (uppercase hex)
+    plain_codes  = [_secrets.token_hex(4).upper() for _ in range(8)]
+    hashed_codes = [hash_password(c) for c in plain_codes]
+
+    await enable_mfa(conn, str(user["id"]), _json.dumps(hashed_codes))
+    try:
+        await log_action(conn, str(user["id"]), user["email"], "mfa_enabled")
+    except Exception:
+        pass
+
+    return {"backup_codes": plain_codes}  # shown to user ONCE — never returned again
+
+
+@app.post("/auth/mfa/disable")
+async def mfa_disable(
+    req: MfaDisableRequest,
+    user=Depends(get_current_user),
+    conn=Depends(get_conn),
+):
+    """Disable MFA after verifying the current TOTP code or a backup code."""
+    import pyotp, json as _json
+
+    mfa_data = await get_user_mfa(conn, str(user["id"]))
+    if not mfa_data or not mfa_data.get("mfa_enabled"):
+        raise HTTPException(status_code=400, detail="MFA is not enabled.")
+
+    secret = decrypt_mfa_secret(mfa_data["mfa_secret"])
+    code   = req.code.strip().replace(" ", "").replace("-", "")
+
+    totp_ok = pyotp.TOTP(secret).verify(code, valid_window=1)
+    if not totp_ok:
+        raw_codes    = mfa_data.get("mfa_backup_codes")
+        backup_codes = _json.loads(raw_codes) if isinstance(raw_codes, str) else (raw_codes or [])
+        if not any(verify_password(code.upper(), h) for h in backup_codes):
+            raise HTTPException(status_code=401, detail="Invalid code.")
+
+    await disable_mfa(conn, str(user["id"]))
+    try:
+        await log_action(conn, str(user["id"]), user["email"], "mfa_disabled")
+    except Exception:
+        pass
+    return {"status": "disabled"}
 
 
 @app.post("/auth/forgot-password")
@@ -548,9 +758,10 @@ async def get_dashboard(
     - Top 10 most recent critical/high findings across all accounts
     """
     user_id  = str(user["id"])
+    role     = user.get("role", "analyst")
     since    = datetime.now(timezone.utc) - timedelta(days=days) if days else None
-    accounts = await get_accounts_for_user(conn, user_id)
-    scans    = await get_scans_for_user(conn, user_id, limit=50, since=since)
+    accounts = await get_accounts_for_user(conn, user_id, role)
+    scans    = await get_scans_for_user(conn, user_id, limit=50, since=since, role=role)
 
     # ── Per-account latest score ───────────────────────────────────────────
     # Build a map of account_id → most recent scan
@@ -695,13 +906,14 @@ async def get_dashboard(
 
 @app.get("/accounts")
 async def list_accounts(user=Depends(get_current_user), conn=Depends(get_conn)):
-    accounts = await get_accounts_for_user(conn, str(user["id"]))
+    role     = user.get("role", "analyst")
+    accounts = await get_accounts_for_user(conn, str(user["id"]), role)
     return {"accounts": [_safe_account(a) for a in accounts]}
 
 
 @app.post("/accounts", status_code=201)
 async def add_account(req: CreateAccountRequest, request: Request,
-                       user=Depends(require_role("admin")), conn=Depends(get_conn)):
+                       user=Depends(require_role("analyst")), conn=Depends(get_conn)):
     if req.cloud == "aws":
         if not req.access_key_id or not req.secret_access_key:
             raise HTTPException(status_code=422,
@@ -719,12 +931,31 @@ async def add_account(req: CreateAccountRequest, request: Request,
     else:
         raise HTTPException(status_code=422, detail="cloud must be 'aws' or 'azure'.")
 
+    # Resolve team_id: admins in exactly one team get auto-assigned
+    team_id = req.team_id
+    role    = user.get("role", "analyst")
+    if role != "superadmin":
+        team_ids = await get_user_team_ids(conn, str(user["id"]))
+        if not team_ids:
+            raise HTTPException(status_code=403,
+                detail="You must belong to a team before adding accounts.")
+        if team_id and team_id not in team_ids:
+            raise HTTPException(status_code=403,
+                detail="You can only add accounts to teams you belong to.")
+        if not team_id:
+            if len(team_ids) == 1:
+                team_id = team_ids[0]
+            else:
+                raise HTTPException(status_code=422,
+                    detail="You belong to multiple teams — specify team_id.")
+
     encrypted = encrypt_credentials(creds)
     account   = await create_account(
         conn, user_id=str(user["id"]), name=req.name, cloud=req.cloud,
         encrypted_creds=encrypted, region=req.region if req.cloud == "aws" else None,
         scan_interval_hours=req.scan_interval_hours,
         category=req.category or "General",
+        team_id=team_id,
     )
     # Register with scheduler if interval > 0
     if req.scan_interval_hours > 0:
@@ -744,6 +975,16 @@ async def add_account(req: CreateAccountRequest, request: Request,
 @app.put("/accounts/{account_id}")
 async def update_account_route(account_id: str, req: UpdateAccountRequest,
                                 user=Depends(require_role("admin")), conn=Depends(get_conn)):
+    if user.get("role") != "superadmin":
+        existing = await get_account(conn, account_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Account not found.")
+        if existing.get("team_id"):
+            if not await is_member_of_team(conn, str(existing["team_id"]), str(user["id"])):
+                raise HTTPException(status_code=403, detail="Access denied — not a member of this account's team.")
+        else:
+            # Accounts with no team are superadmin-only
+            raise HTTPException(status_code=403, detail="Access denied.")
     account = await update_account(conn, account_id, str(user["id"]),
                                     req.name, req.scan_interval_hours,
                                     category=req.category or "General")
@@ -760,7 +1001,15 @@ async def update_account_route(account_id: str, req: UpdateAccountRequest,
 @app.delete("/accounts/{account_id}")
 async def delete_account_route(account_id: str, request: Request,
                                 user=Depends(require_role("admin")), conn=Depends(get_conn)):
-    account = await get_account(conn, account_id, str(user["id"]))
+    account = await get_account(conn, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found.")
+    if user.get("role") != "superadmin":
+        if account.get("team_id"):
+            if not await is_member_of_team(conn, str(account["team_id"]), str(user["id"])):
+                raise HTTPException(status_code=403, detail="Access denied — not a member of this account's team.")
+        else:
+            raise HTTPException(status_code=403, detail="Access denied.")
     deleted = await delete_account(conn, account_id, str(user["id"]))
     if not deleted:
         raise HTTPException(status_code=404, detail="Account not found.")
@@ -776,10 +1025,17 @@ async def delete_account_route(account_id: str, request: Request,
 
 @app.post("/accounts/{account_id}/test")
 async def test_saved_account(account_id: str,
-                              user=Depends(get_current_user), conn=Depends(get_conn)):
+                              user=Depends(require_role("analyst")), conn=Depends(get_conn)):
     account = await get_account_with_creds(conn, account_id)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found.")
+    if user.get("role") != "superadmin":
+        if account.get("team_id"):
+            if not await is_member_of_team(conn, str(account["team_id"]), str(user["id"])):
+                raise HTTPException(status_code=403, detail="Access denied — not a member of this account's team.")
+        else:
+            # Unassigned accounts are superadmin-only
+            raise HTTPException(status_code=403, detail="Access denied.")
     creds = decrypt_credentials(account["encrypted_creds"])
     try:
         if account["cloud"] == "aws":
@@ -798,11 +1054,20 @@ async def test_saved_account(account_id: str,
 @app.post("/accounts/{account_id}/scan")
 async def scan_saved_account(account_id: str, request: Request,
                               user=Depends(require_role("analyst")), conn=Depends(get_conn)):
-    account = await get_account_with_creds(conn, account_id)
-    if not account:
+    # Fetch metadata first (no credentials) to check access before decrypting
+    account_meta = await get_account(conn, account_id)
+    if not account_meta:
         raise HTTPException(status_code=404, detail="Account not found.")
+    if user.get("role") != "superadmin":
+        if account_meta.get("team_id"):
+            if not await is_member_of_team(conn, str(account_meta["team_id"]), str(user["id"])):
+                raise HTTPException(status_code=403, detail="Access denied — not a member of this account's team.")
+        else:
+            raise HTTPException(status_code=403, detail="Access denied.")
+    account = await get_account_with_creds(conn, account_id)
     creds = decrypt_credentials(account["encrypted_creds"])
     cloud = account["cloud"]
+    _mark_scanning(account_id)
     try:
         result = await _run_scan_engine(
             cloud=cloud,
@@ -811,7 +1076,10 @@ async def scan_saved_account(account_id: str, request: Request,
         )
     except Exception as e:
         traceback.print_exc()
+        _unmark_scanning(account_id)
         raise HTTPException(status_code=500, detail=_friendly_cloud_error(e, cloud))
+    finally:
+        _unmark_scanning(account_id)
     saved = await save_scan_result(
         conn, user_id=str(user["id"]), account_id=account_id,
         cloud=cloud, scores=result["scores"],
@@ -820,9 +1088,11 @@ async def scan_saved_account(account_id: str, request: Request,
         findings=result["findings"], triggered_by="manual",
     )
     await update_account_last_scanned(conn, account_id)
-    result["scan_id"]      = str(saved["id"])
-    result["account_name"] = account["name"]
-    result["triggered_by"] = "manual"
+    scanned_at = datetime.now(timezone.utc).isoformat()
+    result["scan_id"]        = str(saved["id"])
+    result["account_name"]   = account["name"]
+    result["triggered_by"]   = "manual"
+    result["last_scanned_at"] = scanned_at
 
     # ── Trigger alert emails if conditions are met ────────────────────────────
     try:
@@ -873,7 +1143,7 @@ async def scan_saved_account(account_id: str, request: Request,
             sys_cfg = await get_system_alert_settings(conn)
             if sys_cfg and sys_cfg.get("enabled"):
                 # Compute current overall platform score from latest scans
-                all_scans = await get_scans_for_user(conn, str(user["id"]))
+                all_scans = await get_scans_for_user(conn, str(user["id"]), role=user.get("role", "analyst"))
                 seen_accounts: set = set()
                 latest_scores: list = []
                 for sc in all_scans:
@@ -917,6 +1187,39 @@ async def scan_saved_account(account_id: str, request: Request,
     return result
 
 
+# ── Scanning Status ───────────────────────────────────────────────────────────
+
+@app.get("/accounts/scanning")
+async def get_scanning_status(
+    user=Depends(get_current_user),
+    conn=Depends(get_conn),
+):
+    """
+    Returns which accounts (visible to this user) are currently being scanned.
+    Combines in-process manual scans (_scanning_accounts) with scheduler's
+    is_running flag from the DB.
+    Response: { "scanning": { account_id: "manual"|"scheduled" } }
+    """
+    role     = user.get("role", "analyst")
+    accounts = await get_accounts_for_user(conn, str(user["id"]), role)
+    visible_ids = {str(a["id"]) for a in accounts}
+
+    # Scheduled scans: query is_running from DB
+    rows = await conn.fetch(
+        "SELECT account_id FROM scheduled_jobs WHERE is_running = true"
+    )
+    scheduled_running = {str(r["account_id"]) for r in rows}
+
+    result = {}
+    for aid in visible_ids:
+        if aid in _scanning_accounts:
+            result[aid] = "manual"
+        elif aid in scheduled_running:
+            result[aid] = "scheduled"
+
+    return {"scanning": result}
+
+
 # ── Bulk Scan All Accounts ─────────────────────────────────────────────────────
 
 @app.post("/accounts/scan-all")
@@ -929,7 +1232,8 @@ async def scan_all_accounts(
     rate-limiting while still being faster than purely sequential.
     Returns a summary of results.
     """
-    accounts = await get_accounts_for_user(conn, str(user["id"]))
+    role     = user.get("role", "analyst")
+    accounts = await get_accounts_for_user(conn, str(user["id"]), role)
     if not accounts:
         return {"results": [], "success_count": 0, "fail_count": 0}
 
@@ -940,6 +1244,7 @@ async def scan_all_accounts(
         account_id = str(account["id"])
         cloud      = account["cloud"]
         async with semaphore:
+            _mark_scanning(account_id)
             try:
                 # get_accounts_for_user doesn't include encrypted_creds — fetch full record
                 async with pool.acquire() as c:
@@ -967,6 +1272,7 @@ async def scan_all_accounts(
                 return {
                     "account_id": account_id, "account_name": account["name"],
                     "cloud": cloud, "status": "success", "score": overall_score,
+                    "last_scanned_at": datetime.now(timezone.utc).isoformat(),
                 }
             except Exception as e:
                 logger.warning(f"bulk_scan failed for {account['name']}: {e}")
@@ -974,6 +1280,8 @@ async def scan_all_accounts(
                     "account_id": account_id, "account_name": account["name"],
                     "cloud": cloud, "status": "error", "error": str(e),
                 }
+            finally:
+                _unmark_scanning(account_id)
 
     results = await asyncio.gather(*[_scan_one(a) for a in accounts])
 
@@ -994,15 +1302,29 @@ async def scan_all_accounts(
 @app.get("/scans")
 async def list_scans(account_id: Optional[str] = None, limit: int = 20,
                       user=Depends(get_current_user), conn=Depends(get_conn)):
-    scans = await get_scans_for_user(conn, str(user["id"]), account_id, limit)
+    role = user.get("role", "analyst")
+    scans = await get_scans_for_user(conn, str(user["id"]), account_id, limit, role=role)
     return {"scans": scans}
 
 
 @app.get("/scans/{scan_id}")
 async def get_scan(scan_id: str, user=Depends(get_current_user), conn=Depends(get_conn)):
+    role = user.get("role", "analyst")
     scan = await get_scan_by_id(conn, scan_id, str(user["id"]))
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found.")
+    # Enforce team-scoped access: non-superadmins may only view scans for their team's accounts
+    if role != "superadmin" and scan.get("account_id"):
+        accessible = await conn.fetchval(
+            """
+            SELECT 1 FROM cloud_accounts
+            WHERE id = $1
+            AND team_id IN (SELECT team_id FROM team_members WHERE user_id = $2)
+            """,
+            scan["account_id"], str(user["id"]),
+        )
+        if not accessible:
+            raise HTTPException(status_code=403, detail="Access denied.")
 
     # ── Compute diff against the previous scan for this account ───────────────
     if scan.get("account_id"):
@@ -1062,6 +1384,18 @@ async def download_scan_report(
     scan = await get_scan_by_id(conn, scan_id, str(user["id"]))
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found.")
+    role = user.get("role", "analyst")
+    if role != "superadmin" and scan.get("account_id"):
+        accessible = await conn.fetchval(
+            """
+            SELECT 1 FROM cloud_accounts
+            WHERE id = $1
+            AND team_id IN (SELECT team_id FROM team_members WHERE user_id = $2)
+            """,
+            scan["account_id"], str(user["id"]),
+        )
+        if not accessible:
+            raise HTTPException(status_code=403, detail="Access denied.")
 
     findings  = scan.get("findings") or []
     account   = (scan.get("account_name") or "scan").replace(" ", "-")
@@ -1140,7 +1474,8 @@ async def adhoc_scan(req: AdHocScanRequest, user=Depends(require_role("analyst")
 # ── Test Connection ───────────────────────────────────────────────────────────
 
 @app.post("/test-connection")
-async def test_connection(req: TestConnectionRequest):
+async def test_connection(req: TestConnectionRequest,
+                          user=Depends(get_current_user)):
     results, errors = {}, {}
     if req.cloud in ("aws","all") and req.aws:
         try:
@@ -1168,7 +1503,7 @@ async def test_connection(req: TestConnectionRequest):
 # ── Policies ──────────────────────────────────────────────────────────────────
 
 @app.get("/policies")
-async def get_policies():
+async def get_policies(user=Depends(get_current_user)):
     all_rules = []
     for rule in AWS_RULES:
         all_rules.append({**rule, "cloud": "aws", "is_custom": False})
@@ -1192,13 +1527,13 @@ async def get_policies():
 
 
 @app.get("/custom-rules")
-async def list_custom_rules():
+async def list_custom_rules(user=Depends(get_current_user)):
     return {"rules": load_custom_rules()}
 
 
 @app.post("/custom-rules")
 async def create_custom_rule(rule: CustomRuleCreate,
-                              user=Depends(require_role("analyst"))):
+                              user=Depends(require_role("admin"))):
     try:
         save_custom_rule(rule.dict())
         return {"status": "created", "rule_id": rule.rule_id}
@@ -1207,7 +1542,7 @@ async def create_custom_rule(rule: CustomRuleCreate,
 
 
 @app.delete("/custom-rules/{rule_id}")
-async def delete_rule(rule_id: str, user=Depends(require_role("analyst"))):
+async def delete_rule(rule_id: str, user=Depends(require_role("admin"))):
     if not delete_custom_rule(rule_id):
         raise HTTPException(status_code=404, detail=f"Rule '{rule_id}' not found.")
     return {"status": "deleted", "rule_id": rule_id}
@@ -1228,9 +1563,18 @@ async def list_alert_settings(user=Depends(get_current_user), conn=Depends(get_c
 @app.get("/alerts/settings/{account_id}")
 async def get_account_alert_settings(
     account_id: str,
-    user=Depends(get_current_user), conn=Depends(get_conn)
+    user=Depends(require_role("analyst")), conn=Depends(get_conn)
 ):
-    """Get alert settings for the current user's account."""
+    """Get alert settings for an account — requires team membership."""
+    if user.get("role") != "superadmin":
+        acct = await get_account(conn, account_id)
+        if not acct:
+            raise HTTPException(status_code=404, detail="Account not found.")
+        if acct.get("team_id"):
+            if not await is_member_of_team(conn, str(acct["team_id"]), str(user["id"])):
+                raise HTTPException(status_code=403, detail="Access denied.")
+        else:
+            raise HTTPException(status_code=403, detail="Access denied.")
     settings = await get_alert_settings(conn, str(user["id"]), account_id)
     return {
         "settings":         settings,
@@ -1249,6 +1593,12 @@ async def save_alert_settings(
     account = await get_account(conn, req.account_id)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found.")
+    if role != "superadmin":
+        if account.get("team_id"):
+            if not await is_member_of_team(conn, str(account["team_id"]), str(user["id"])):
+                raise HTTPException(status_code=403, detail="Access denied — not a member of this account's team.")
+        else:
+            raise HTTPException(status_code=403, detail="Access denied.")
 
     # Enforce field permissions: only admin+ can set medium/new_finding alerts
     role = user.get("role", "analyst")
@@ -1282,8 +1632,18 @@ async def send_test_alert(
     account_id: str,
     user=Depends(require_role("admin")), conn=Depends(get_conn)
 ):
-    """Send a test alert email for an account."""
+    """Send a test alert email for an account — requires team membership."""
     from notifications.email_engine import build_alert_email, send_alert_email
+
+    account = await get_account(conn, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found.")
+    if user.get("role") != "superadmin":
+        if account.get("team_id"):
+            if not await is_member_of_team(conn, str(account["team_id"]), str(user["id"])):
+                raise HTTPException(status_code=403, detail="Access denied.")
+        else:
+            raise HTTPException(status_code=403, detail="Access denied.")
 
     if not is_email_configured():
         raise HTTPException(status_code=400,
@@ -1293,8 +1653,6 @@ async def send_test_alert(
     if not settings:
         raise HTTPException(status_code=404,
             detail="No alert settings found for this account.")
-
-    account = await get_account(conn, account_id, str(user["id"]))
     subject, html = build_alert_email(
         account_name=account["name"],
         cloud=account["cloud"],
@@ -1338,7 +1696,7 @@ async def save_system_alerts(
 # ── Admin ─────────────────────────────────────────────────────────────────────
 
 @app.get("/admin/users")
-async def admin_list_users(user=Depends(require_role("superadmin")), conn=Depends(get_conn)):
+async def admin_list_users(user=Depends(require_role("admin")), conn=Depends(get_conn)):
     return {"users": await get_all_users(conn)}
 
 
@@ -1419,7 +1777,12 @@ async def accept_invite(req: AcceptInviteRequest, conn=Depends(get_conn)):
     new_user = await update_user_role(conn, str(new_user["id"]), row["role"])
     await mark_invite_used(conn, req.token)
 
-    token_jwt = create_token({"sub": str(new_user["id"])})
+    token_jwt = create_token(
+        str(new_user["id"]),
+        row["email"],
+        new_user.get("is_admin", False),
+        new_user.get("role", "analyst"),
+    )
     return _user_response(new_user, token_jwt)
 
 
@@ -1483,7 +1846,7 @@ async def admin_delete_user(
 
 
 @app.get("/admin/stats")
-async def admin_stats(user=Depends(require_role("admin")), conn=Depends(get_conn)):
+async def admin_stats(user=Depends(require_role("superadmin")), conn=Depends(get_conn)):
     return await get_platform_stats(conn)
 
 
@@ -1556,6 +1919,171 @@ async def assign_user_role(
         "message": f"Role updated to '{req.role}'.",
     }
 
+# ── Move Account to Team ──────────────────────────────────────────────────────
+
+@app.put("/accounts/{account_id}/team")
+async def move_account_team(
+    account_id: str,
+    req: MoveAccountTeamRequest,
+    user=Depends(require_role("admin")),
+    conn=Depends(get_conn),
+):
+    """Move an account to a different team. Superadmin: any account. Admin: only accounts in their team."""
+    account = await get_account(conn, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found.")
+    if user.get("role") != "superadmin":
+        if account.get("team_id") and not await is_member_of_team(
+                conn, str(account["team_id"]), str(user["id"])):
+            raise HTTPException(status_code=403, detail="Access denied — not a member of this account's team.")
+        if req.team_id and not await is_member_of_team(conn, req.team_id, str(user["id"])):
+            raise HTTPException(status_code=403, detail="You can only move accounts to teams you belong to.")
+    updated = await update_account_team(conn, account_id, req.team_id)
+    return {"account": _safe_account(updated)}
+
+
+# ── Teams ──────────────────────────────────────────────────────────────────────
+
+@app.get("/teams")
+async def list_teams(user=Depends(get_current_user), conn=Depends(get_conn)):
+    """Superadmin: all teams. Others: only their teams."""
+    if user.get("role") == "superadmin":
+        teams = await get_all_teams(conn)
+    else:
+        teams = await get_teams_for_user(conn, str(user["id"]))
+    return {"teams": teams}
+
+
+@app.post("/teams", status_code=201)
+async def create_team_route(
+    req: CreateTeamRequest,
+    request: Request,
+    user=Depends(require_role("superadmin")),
+    conn=Depends(get_conn),
+):
+    if not req.name.strip():
+        raise HTTPException(status_code=422, detail="Team name is required.")
+    team = await create_team(conn, req.name.strip(), req.description.strip(), str(user["id"]))
+    try:
+        await log_action(conn, str(user["id"]), user["email"], "create_team",
+                         resource_type="team", resource_id=str(team["id"]),
+                         resource_name=req.name,
+                         ip_address=request.client.host if request.client else None)
+    except Exception:
+        pass
+    return {"team": team}
+
+
+@app.get("/teams/{team_id}")
+async def get_team_route(team_id: str, user=Depends(get_current_user), conn=Depends(get_conn)):
+    team = await get_team(conn, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found.")
+    if user.get("role") != "superadmin":
+        if not await is_member_of_team(conn, team_id, str(user["id"])):
+            raise HTTPException(status_code=403, detail="Access denied.")
+    return {"team": team}
+
+
+@app.put("/teams/{team_id}")
+async def update_team_route(
+    team_id: str,
+    req: UpdateTeamRequest,
+    user=Depends(require_role("superadmin")),
+    conn=Depends(get_conn),
+):
+    team = await update_team(conn, team_id, req.name.strip(), req.description.strip())
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found.")
+    return {"team": team}
+
+
+@app.delete("/teams/{team_id}")
+async def delete_team_route(
+    team_id: str,
+    request: Request,
+    user=Depends(require_role("superadmin")),
+    conn=Depends(get_conn),
+):
+    team = await get_team(conn, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found.")
+    deleted = await delete_team(conn, team_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Team not found.")
+    try:
+        await log_action(conn, str(user["id"]), user["email"], "delete_team",
+                         resource_type="team", resource_id=team_id,
+                         resource_name=team.get("name"),
+                         ip_address=request.client.host if request.client else None)
+    except Exception:
+        pass
+    return {"status": "deleted"}
+
+
+@app.get("/teams/{team_id}/members")
+async def list_team_members(team_id: str, user=Depends(get_current_user), conn=Depends(get_conn)):
+    if user.get("role") != "superadmin":
+        if not await is_member_of_team(conn, team_id, str(user["id"])):
+            raise HTTPException(status_code=403, detail="Access denied.")
+    members = await get_team_members(conn, team_id)
+    return {"members": members}
+
+
+@app.post("/teams/{team_id}/members", status_code=201)
+async def add_member_route(
+    team_id: str,
+    req: AddTeamMemberRequest,
+    request: Request,
+    user=Depends(require_role("admin")),
+    conn=Depends(get_conn),
+):
+    """Superadmin: add anyone to any team. Admin: only add to teams they belong to."""
+    if user.get("role") != "superadmin":
+        if not await is_member_of_team(conn, team_id, str(user["id"])):
+            raise HTTPException(status_code=403, detail="Access denied — not a member of this team.")
+    team = await get_team(conn, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found.")
+    member = await add_team_member(conn, team_id, req.user_id, str(user["id"]))
+    try:
+        await log_action(conn, str(user["id"]), user["email"], "add_team_member",
+                         resource_type="team", resource_id=team_id,
+                         resource_name=team.get("name"),
+                         detail={"added_user_id": req.user_id},
+                         ip_address=request.client.host if request.client else None)
+    except Exception:
+        pass
+    return {"member": member}
+
+
+@app.delete("/teams/{team_id}/members/{target_user_id}")
+async def remove_member_route(
+    team_id: str,
+    target_user_id: str,
+    request: Request,
+    user=Depends(require_role("admin")),
+    conn=Depends(get_conn),
+):
+    """Superadmin: remove anyone from any team. Admin: only from their own teams."""
+    if user.get("role") != "superadmin":
+        if not await is_member_of_team(conn, team_id, str(user["id"])):
+            raise HTTPException(status_code=403, detail="Access denied — not a member of this team.")
+    removed = await remove_team_member(conn, team_id, target_user_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Member not found in team.")
+    try:
+        team = await get_team(conn, team_id)
+        await log_action(conn, str(user["id"]), user["email"], "remove_team_member",
+                         resource_type="team", resource_id=team_id,
+                         resource_name=team.get("name") if team else None,
+                         detail={"removed_user_id": target_user_id},
+                         ip_address=request.client.host if request.client else None)
+    except Exception:
+        pass
+    return {"status": "removed"}
+
+
 # ── Audit Log ──────────────────────────────────────────────────────────────────
 
 @app.get("/audit-log")
@@ -1569,7 +2097,7 @@ async def get_audit_log_endpoint(
     Admin and superadmin both see all users' actions.
     Analysts/viewers are forbidden (require_role("admin") enforces this).
     """
-    logs = await get_audit_log(conn, str(user["id"]), is_superadmin=True, limit=limit)
+    logs = await get_audit_log(conn, str(user["id"]), is_superadmin=(user.get("role") == "superadmin"), limit=limit)
     # Serialize UUIDs and datetimes
     for entry in logs:
         for k, v in entry.items():

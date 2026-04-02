@@ -119,11 +119,11 @@ export default function ConnectPage({
   const CloudTab = ({ id, label }) => (
     <button onClick={() => upCloud(id)} style={{
       flex: 1, padding: "9px 0", border: "none", cursor: "pointer",
-      background:    cloud === id ? "rgba(255,230,0,0.1)" : "transparent",
+      background:    cloud === id ? "rgba(79,143,247,0.08)" : "transparent",
       color:         cloud === id ? "var(--cyan)"         : "var(--accent3)",
       fontFamily:    "var(--font-ui)", fontWeight: 700, fontSize: "12px",
       letterSpacing: "0.1em", transition: "all 0.15s",
-      textShadow:    cloud === id ? "0 0 8px rgba(255,230,0,0.5)" : "none",
+      textShadow:    "none",
       borderBottom:  cloud === id ? "2px solid var(--cyan)" : "2px solid transparent",
     }}>{label}</button>
   );
@@ -139,7 +139,7 @@ export default function ConnectPage({
           <h1 style={{
             fontFamily: "var(--font-display)", fontSize: "26px", fontWeight: 900,
             color: "var(--cyan)", letterSpacing: "0.12em",
-            textShadow: "var(--glow-cyan)",
+            textShadow: "none",
           }}>VANGUARD</h1>
           <p style={{ color: "var(--accent3)", fontSize: "11px", marginTop: "6px",
                       fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}>
@@ -148,9 +148,9 @@ export default function ConnectPage({
         </div>
 
         <div style={{
-          background: "var(--surface)", border: "1px solid rgba(255,230,0,0.15)",
+          background: "var(--surface)", border: "1px solid var(--border)",
           borderRadius: "12px", padding: "28px",
-          boxShadow: "0 0 40px rgba(255,230,0,0.03)",
+          boxShadow: "none",
         }}>
 
           {/* Cloud Toggle */}
@@ -231,25 +231,22 @@ export default function ConnectPage({
           <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
             <button onClick={handleTest} disabled={testing} className="neon-btn" style={{
               flex: 1, padding: "10px",
-              border: "1px solid rgba(255,230,0,0.25)", borderRadius: "6px",
+              border: "1px solid var(--border)", borderRadius: "6px",
               background: "transparent",
               color: testing ? "var(--accent3)" : "var(--cyan)",
               fontFamily: "var(--font-ui)", fontWeight: 600, fontSize: "13px",
               letterSpacing: "0.08em", cursor: testing ? "not-allowed" : "pointer",
-              textShadow: testing ? "none" : "0 0 6px rgba(255,230,0,0.4)",
             }}>
               {testing ? "TESTING..." : "TEST CONNECTION"}
             </button>
             <button onClick={handleScan} disabled={scanning} className="neon-btn" style={{
               flex: 2, padding: "10px",
-              background: scanning ? "rgba(255,230,0,0.1)" : "transparent",
-              color: scanning ? "rgba(255,230,0,0.4)" : "var(--cyan)",
-              border: `1px solid ${scanning ? "rgba(255,230,0,0.2)" : "var(--cyan)"}`,
+              background: scanning ? "transparent" : "var(--cyan)",
+              color: scanning ? "var(--accent3)" : "#0e0c09",
+              border: scanning ? "1px solid var(--border)" : "none",
               borderRadius: "6px",
               fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "13px",
               letterSpacing: "0.1em", cursor: scanning ? "not-allowed" : "pointer",
-              boxShadow: scanning ? "none" : "var(--glow-cyan)",
-              textShadow: scanning ? "none" : "0 0 8px rgba(255,230,0,0.6)",
             }}>
               {scanning ? "STARTING..." : "START SCAN →"}
             </button>

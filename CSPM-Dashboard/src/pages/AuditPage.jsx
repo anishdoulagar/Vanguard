@@ -6,8 +6,8 @@ const ACTION_COLOR = {
   login:            "#4caf7d",
   create_account:   "#00bcd4",
   delete_account:   "#e05555",
-  scan_account:     "#ffe600",
-  bulk_scan:        "#ffe600",
+  scan_account:     "#4f8ff7",
+  bulk_scan:        "#4f8ff7",
   delete_user:      "#e05555",
   change_user_role: "#d97b3a",
   create_custom_rule: "#00bcd4",
@@ -30,7 +30,7 @@ const ACTION_LABELS = {
 
 const ALL_ACTIONS = ["ALL", ...Object.keys(ACTION_LABELS)];
 
-export default function AuditPage({ token }) {
+export default function AuditPage({ token, role }) {
   const [logs, setLogs]           = useState([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState("");
@@ -74,10 +74,18 @@ export default function AuditPage({ token }) {
     padding: "5px 12px", borderRadius: "20px", fontSize: "11px",
     fontFamily: "var(--font-ui)", fontWeight: 700, letterSpacing: "0.08em",
     cursor: "pointer", border: "1px solid var(--border)",
-    background: active ? "var(--neon)" : "transparent",
-    color: active ? "#111" : "var(--accent3)",
+    background: active ? "var(--cyan)" : "transparent",
+    color: active ? "#0e0c09" : "var(--accent3)",
     transition: "all 0.15s",
   });
+
+  if (role !== "superadmin" && role !== "admin") return (
+    <div style={{ padding: "60px 32px", textAlign: "center", color: "var(--accent3)",
+                  fontFamily: "var(--font-mono)", fontSize: "13px" }}>
+      <div style={{ fontSize: 32, marginBottom: 16 }}>⛔</div>
+      Admin access required.
+    </div>
+  );
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px" }}>

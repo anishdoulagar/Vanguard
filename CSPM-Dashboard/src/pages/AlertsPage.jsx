@@ -264,9 +264,9 @@ function AccountAlertCard({ account, token, emailConfigured, userEmail, readOnly
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={handleSave} disabled={saving} className="neon-btn" style={{
                 flex: 2, padding: "9px",
-                border: `1px solid ${saving ? "rgba(255,230,0,0.2)" : "var(--cyan)"}`,
+                border: `1px solid ${saving ? "var(--border)" : "var(--cyan)"}`,
                 borderRadius: "6px", background: "transparent",
-                color: saving ? "rgba(255,230,0,0.4)" : "var(--cyan)",
+                color: saving ? "var(--accent3)" : "var(--cyan)",
                 fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "12px",
                 cursor: saving ? "not-allowed" : "pointer",
                 boxShadow: saving ? "none" : "var(--glow-cyan)",
@@ -423,7 +423,7 @@ export default function AlertsPage({ token, role, userEmail }) {
       {/* Platform Alert card — superadmin only */}
       {isSuperadmin && (
         <div style={{
-          background: "var(--card)", border: "1px solid rgba(255,230,0,0.25)",
+          background: "var(--card)", border: "1px solid var(--border)",
           borderRadius: "10px", padding: "20px", marginBottom: "20px",
           borderLeft: "3px solid var(--accent)",
         }}>
@@ -487,9 +487,9 @@ export default function AlertsPage({ token, role, userEmail }) {
 
           <button onClick={saveSysAlerts} disabled={sysSaving} className="neon-btn" style={{
             padding: "9px 24px",
-            border: `1px solid ${sysSaving ? "rgba(255,230,0,0.2)" : "var(--accent)"}`,
+            border: `1px solid ${sysSaving ? "var(--border)" : "var(--accent)"}`,
             borderRadius: "6px", background: "transparent",
-            color: sysSaving ? "rgba(255,230,0,0.4)" : "var(--accent)",
+            color: sysSaving ? "var(--accent3)" : "var(--accent)",
             fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "12px",
             cursor: sysSaving ? "not-allowed" : "pointer",
             boxShadow: sysSaving ? "none" : "var(--glow)",
@@ -590,7 +590,7 @@ export default function AlertsPage({ token, role, userEmail }) {
               />
               <button onClick={sendTestEmail} disabled={testSending || !testEmail} style={{
                 padding: "7px 16px", background: "transparent", cursor: "pointer",
-                border: "1px solid rgba(255,230,0,0.3)", borderRadius: "5px",
+                border: "1px solid var(--border)", borderRadius: "5px",
                 color: "var(--cyan)", fontFamily: "var(--font-ui)",
                 fontSize: "11px", fontWeight: 700,
               }}>
@@ -608,8 +608,8 @@ export default function AlertsPage({ token, role, userEmail }) {
             )}
             {smtpDiag.auth_ok && (
               <div style={{ marginTop: "10px", padding: "8px 12px", borderRadius: "5px",
-                            background: "rgba(255,230,0,0.04)", color: "var(--accent3)",
-                            border: "1px solid rgba(255,230,0,0.08)",
+                            background: "rgba(79,143,247,0.04)", color: "var(--accent3)",
+                            border: "1px solid rgba(79,143,247,0.08)",
                             fontFamily: "var(--font-mono)", fontSize: "10px", lineHeight: 1.5 }}>
                 ⓘ If the test email doesn't arrive, check: (1) your Brevo/provider dashboard for bounces,
                 (2) verify SMTP_FROM is a verified sender address in your email provider,

@@ -229,7 +229,7 @@ export default function HistoryPage({ token, role }) {
                 padding:"4px 10px", borderRadius:4, fontSize:10,
                 fontFamily:"var(--font-ui)", fontWeight:700, letterSpacing:"0.07em",
                 cursor:"pointer", border:"1px solid var(--border)",
-                background: cloudFilter === c ? "rgba(255,230,0,0.1)" : "transparent",
+                background: cloudFilter === c ? "rgba(79,143,247,0.08)" : "transparent",
                 color: cloudFilter === c ? "var(--cyan)" : "var(--accent3)",
                 textTransform:"uppercase",
               }}>{c === "all" ? "ALL" : c.toUpperCase()}</button>
@@ -402,7 +402,7 @@ export default function HistoryPage({ token, role }) {
                     if (!full) return null;
                     const diff = full.diff;
                     const tab  = diffTab[scan.id] || "all";
-                    const SEV_C = { CRITICAL:"#ff2255", HIGH:"#ff6b00", MEDIUM:"#ffe600", LOW:"#39ff14" };
+                    const SEV_C = { CRITICAL:"#e05555", HIGH:"#d97b3a", MEDIUM:"#c9a84c", LOW:"#4caf7d" };
                     const findings = full.findings || [];
                     return (
                       <div>
@@ -444,7 +444,7 @@ export default function HistoryPage({ token, role }) {
                               padding:"4px 10px", borderRadius:4, fontSize:10,
                               fontFamily:"var(--font-ui)", fontWeight:700, letterSpacing:"0.08em",
                               cursor:"pointer", border:"1px solid var(--border)",
-                              background: tab === t ? "rgba(255,230,0,0.1)" : "transparent",
+                              background: tab === t ? "rgba(79,143,247,0.08)" : "transparent",
                               color: tab === t ? "var(--cyan)" : "var(--accent3)",
                             }}>
                               {t === "all" ? `ALL FINDINGS (${findings.length})` : "CHANGES"}

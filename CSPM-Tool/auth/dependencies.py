@@ -60,6 +60,14 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Reject MFA pending tokens — they only work on /auth/mfa/verify
+    if payload.get("type") == "mfa_pending":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="MFA verification required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(

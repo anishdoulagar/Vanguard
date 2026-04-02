@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -25,6 +25,22 @@ function CategoryBadge({ category }) {
       fontFamily: "var(--font-ui)", letterSpacing: "0.1em", textTransform: "uppercase",
       background: s.bg, border: `1px solid ${s.border}`, color: s.color,
     }}>{category || "General"}</span>
+  );
+}
+
+function TeamBadge({ teamName }) {
+  if (!teamName) return (
+    <span style={{ color: "var(--accent3)", fontSize: 10, fontFamily: "var(--font-ui)" }}>
+      No team
+    </span>
+  );
+  return (
+    <span style={{
+      padding: "2px 7px", borderRadius: 4, fontSize: 9, fontWeight: 700,
+      fontFamily: "var(--font-ui)", letterSpacing: "0.06em",
+      background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.25)",
+      color: "var(--cyan)",
+    }}>⬡ {teamName}</span>
   );
 }
 
@@ -63,6 +79,17 @@ function scoreLabel(s) {
   if (s >= 60) return "MED RISK";
   if (s >= 40) return "HIGH RISK";
   return "CRITICAL";
+}
+
+function relativeTime(isoStr) {
+  if (!isoStr) return null;
+  const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+  if (diff < 10)    return "just now";
+  if (diff < 60)    return `${diff}s ago`;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  const d = new Date(isoStr);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 const inputStyle = {
@@ -137,7 +164,7 @@ function ThreeDotMenu({ onEdit, onDelete }) {
 }
 
 // ── Add Account Modal ─────────────────────────────────────────────────────────
-function AddAccountModal({ token, onClose, onAdded }) {
+function AddAccountModal({ token, userRole, onClose, onAdded }) {
   const [cloud,    setCloud]    = useState("aws");
   const [name,     setName]     = useState("");
   const [category, setCategory] = useState("General");
@@ -156,6 +183,18 @@ function AddAccountModal({ token, onClose, onAdded }) {
   const [saving,  setSaving]  = useState(false);
   const [testMsg, setTestMsg] = useState(null);
   const [error,   setError]   = useState(null);
+  const [teams,   setTeams]   = useState([]);
+  const [teamId,  setTeamId]  = useState("");
+
+  // Load available teams once
+  useEffect(() => {
+    fetch(`${API}/teams`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => {
+        const t = d.teams || [];
+        setTeams(t);
+        if (t.length === 1) setTeamId(t[0].id);
+      }).catch(() => {});
+  }, [token]);
 
   function buildPayload() {
     const eff = intervalMode === "continuous" ? 0.25
@@ -164,6 +203,7 @@ function AddAccountModal({ token, onClose, onAdded }) {
          : customUnit === "days"    ? customHours * 24
          : customHours) : interval;
     const base = { name, cloud, category, scan_interval_hours: eff };
+    if (teamId) base.team_id = teamId;
     if (cloud === "aws") return { ...base, access_key_id: keyId, secret_access_key: secret, region };
     return { ...base, subscription_id: subId, tenant_id: tenant, client_id: clientId, client_secret: clientSec };
   }
@@ -209,10 +249,12 @@ function AddAccountModal({ token, onClose, onAdded }) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)",
-      display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
+      display:"flex", alignItems:"center", justifyContent:"center", zIndex:200,
+      animation:"overlayIn 0.2s ease-out" }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ background:"var(--surface)", border:"1px solid var(--border)",
-        borderRadius:"12px", padding:"32px", width:"500px", maxHeight:"90vh", overflowY:"auto" }}>
+        borderRadius:"12px", padding:"32px", width:"500px", maxHeight:"90vh", overflowY:"auto",
+        animation:"modalIn 0.25s cubic-bezier(0.23, 1, 0.32, 1)" }}>
 
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"24px" }}>
           <h2 style={{ fontFamily:"var(--font-display)", fontSize:"18px", fontWeight:700,
@@ -225,6 +267,32 @@ function AddAccountModal({ token, onClose, onAdded }) {
 
         <CategoryPicker value={category} onChange={setCategory} />
 
+        {/* Team selector */}
+        {teams.length > 1 && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>TEAM {userRole !== "superadmin" ? "*" : "(OPTIONAL)"}</label>
+            <select value={teamId} onChange={e => setTeamId(e.target.value)}
+              style={{ ...inputStyle, cursor: "pointer" }}>
+              {userRole === "superadmin" && <option value="">— No team</option>}
+              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+        )}
+        {teams.length === 1 && (
+          <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 6,
+            background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.15)" }}>
+            <span style={{ fontSize: 11, color: "var(--accent3)" }}>Team: </span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--cyan)" }}>{teams[0].name}</span>
+          </div>
+        )}
+        {teams.length === 0 && userRole !== "superadmin" && (
+          <div style={{ marginBottom: 14, padding: "9px 12px", borderRadius: 6,
+            background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.2)",
+            fontSize: 12, color: "var(--red)" }}>
+            ⚠ You must belong to a team before adding accounts.
+          </div>
+        )}
+
         <div style={{ marginBottom:"20px" }}>
           <label style={labelStyle}>CLOUD PROVIDER</label>
           <div style={{ display:"flex", background:"var(--card)", border:"1px solid var(--border)",
@@ -232,12 +300,12 @@ function AddAccountModal({ token, onClose, onAdded }) {
             {["aws","azure"].map(c => (
               <button key={c} onClick={() => { setCloud(c); setTestMsg(null); }} style={{
                 flex:1, padding:"9px", border:"none", cursor:"pointer",
-                background: cloud===c ? "rgba(255,230,0,0.1)" : "transparent",
+                background: cloud===c ? "rgba(79,143,247,0.08)" : "transparent",
                 color:      cloud===c ? "var(--cyan)"         : "var(--accent3)",
                 fontFamily:"var(--font-ui)", fontWeight:700, fontSize:"12px",
                 letterSpacing:"0.1em", textTransform:"uppercase",
                 borderBottom: cloud===c ? "2px solid var(--cyan)" : "2px solid transparent",
-                textShadow: cloud===c ? "0 0 8px rgba(255,230,0,0.5)" : "none",
+                textShadow: "none",
               }}>{c}</button>
             ))}
           </div>
@@ -264,7 +332,7 @@ function AddAccountModal({ token, onClose, onAdded }) {
             {[{id:"preset",label:"PRESET"},{id:"custom",label:"CUSTOM"},{id:"continuous",label:"CONTINUOUS"}].map(m => (
               <button key={m.id} onClick={() => setIntervalMode(m.id)} style={{
                 flex:1, padding:"7px 0", border:"none", cursor:"pointer",
-                background: intervalMode===m.id ? "rgba(255,230,0,0.1)" : "transparent",
+                background: intervalMode===m.id ? "rgba(79,143,247,0.08)" : "transparent",
                 color:      intervalMode===m.id ? "var(--cyan)"         : "var(--accent3)",
                 fontFamily:"var(--font-ui)", fontWeight:700, fontSize:"11px",
                 letterSpacing:"0.08em", transition:"all 0.15s",
@@ -333,14 +401,13 @@ function AddAccountModal({ token, onClose, onAdded }) {
           }}>{testing ? "TESTING..." : "TEST"}</button>
           <button onClick={handleSave} disabled={saving} className="neon-btn" style={{
             flex:2, padding:"10px",
-            border:`1px solid ${saving ? "rgba(255,230,0,0.2)" : "var(--cyan)"}`,
+            border:`1px solid ${saving ? "var(--border)" : "var(--cyan)"}`,
             borderRadius:"6px", background:"transparent",
-            color: saving ? "rgba(255,230,0,0.4)" : "var(--cyan)",
+            color: saving ? "var(--accent3)" : "var(--cyan)",
             fontFamily:"var(--font-ui)", fontWeight:700, fontSize:"13px",
             cursor: saving ? "not-allowed" : "pointer",
             boxShadow: saving ? "none" : "var(--glow-cyan)",
-            textShadow: saving ? "none" : "0 0 6px rgba(255,230,0,0.5)",
-          }}>{saving ? "SAVING..." : "SAVE ACCOUNT"}</button>
+                      }}>{saving ? "SAVING..." : "SAVE ACCOUNT"}</button>
         </div>
       </div>
     </div>
@@ -373,10 +440,12 @@ function EditAccountModal({ account, token, onClose, onUpdated }) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)",
-      display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}
+      display:"flex", alignItems:"center", justifyContent:"center", zIndex:300,
+      animation:"overlayIn 0.2s ease-out" }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ background:"var(--surface)", border:"1px solid var(--border)",
-        borderRadius:"12px", padding:"28px", width:"420px" }}>
+        borderRadius:"12px", padding:"28px", width:"420px",
+        animation:"modalIn 0.25s cubic-bezier(0.23, 1, 0.32, 1)" }}>
         <div style={{ display:"flex", justifyContent:"space-between",
           alignItems:"center", marginBottom:"20px" }}>
           <h2 style={{ fontFamily:"var(--font-display)", fontSize:"16px", fontWeight:700,
@@ -428,9 +497,9 @@ function EditAccountModal({ account, token, onClose, onUpdated }) {
             background:"transparent", color:"var(--accent2)",
             fontFamily:"var(--font-ui)", fontSize:"13px", cursor:"pointer" }}>CANCEL</button>
           <button onClick={handleSave} disabled={saving} className="neon-btn" style={{ flex:2, padding:"10px",
-            border:`1px solid ${saving ? "rgba(255,230,0,0.2)" : "var(--cyan)"}`,
+            border:`1px solid ${saving ? "var(--border)" : "var(--cyan)"}`,
             borderRadius:"6px", background:"transparent",
-            color: saving ? "rgba(255,230,0,0.4)" : "var(--cyan)",
+            color: saving ? "var(--accent3)" : "var(--cyan)",
             fontFamily:"var(--font-ui)", fontWeight:700,
             fontSize:"13px", cursor: saving ? "not-allowed" : "pointer",
             boxShadow: saving ? "none" : "var(--glow-cyan)",
@@ -444,32 +513,49 @@ function EditAccountModal({ account, token, onClose, onUpdated }) {
 }
 
 // ── Account Card ──────────────────────────────────────────────────────────────
-function AccountCard({ account, token, role, onDelete, onScanComplete, onUpdate }) {
+function AccountCard({ account, token, role, scanningBy, onDelete, onScanComplete, onUpdate }) {
   const canScan = role !== "viewer";
-  const [scanning,  setScanning]  = useState(false);
-  const [lastScore, setLastScore] = useState(null);
-  const [showEdit,  setShowEdit]  = useState(false);
-  const [scanErr,   setScanErr]   = useState(null);
-  const [deleteErr, setDeleteErr] = useState(null);
+  const canEdit = role === "admin" || role === "superadmin";
+
+  // Separate local scan state from external scan indicator
+  const [scanning,     setScanning]     = useState(false);
+  const [lastScore,    setLastScore]     = useState(null);
+  const [lastScannedAt, setLastScannedAt] = useState(account.last_scanned_at || null);
+  const [, setTick] = useState(0); // forces re-render for live relative time
+  const [showEdit,     setShowEdit]     = useState(false);
+  const [scanErr,      setScanErr]      = useState(null);
+  const [deleteErr,    setDeleteErr]    = useState(null);
+
+  // Re-render every 30s so relative timestamps stay current
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Sync lastScannedAt from prop when parent refreshes account data
+  useEffect(() => {
+    if (account.last_scanned_at) setLastScannedAt(account.last_scanned_at);
+  }, [account.last_scanned_at]);
+
+  const isExternallyScanning = !!scanningBy && !scanning;
 
   async function handleScan() {
-    setScanning(true);
-    setScanErr(null);
+    setScanning(true); setScanErr(null);
     try {
       const res  = await fetch(`${API}/accounts/${account.id}/scan`, {
-        method: "POST", headers: { "Authorization": `Bearer ${token}` },
+        method: "POST", headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (res.ok) {
         setLastScore(data.scores?.overall ?? data.scores?.aws ?? data.scores?.azure);
+        if (data.last_scanned_at) setLastScannedAt(data.last_scanned_at);
         onScanComplete(data);
       } else {
         setScanErr(data.detail || "Scan failed. Please verify your credentials.");
       }
     } catch {
       setScanErr("Cannot reach the backend server. Please check your connection.");
-    }
-    finally { setScanning(false); }
+    } finally { setScanning(false); }
   }
 
   async function handleDelete() {
@@ -477,7 +563,7 @@ function AccountCard({ account, token, role, onDelete, onScanComplete, onUpdate 
     setDeleteErr(null);
     try {
       const res = await fetch(`${API}/accounts/${account.id}`, {
-        method: "DELETE", headers: { "Authorization": `Bearer ${token}` },
+        method: "DELETE", headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         onDelete(account.id);
@@ -485,20 +571,23 @@ function AccountCard({ account, token, role, onDelete, onScanComplete, onUpdate 
         const data = await res.json().catch(() => ({}));
         setDeleteErr(data.detail || "Failed to delete account.");
       }
-    } catch {
-      setDeleteErr("Cannot reach the backend server.");
-    }
+    } catch { setDeleteErr("Cannot reach the backend server."); }
   }
 
-  const score = lastScore;
-  const lastScanned = account.last_scanned_at
-    ? new Date(account.last_scanned_at).toLocaleString() : null;
+  const relTs = relativeTime(lastScannedAt);
+  const clockTs = lastScannedAt
+    ? new Date(lastScannedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+    : null;
+  const isActivelyScanning = scanning || isExternallyScanning;
 
   return (
-    <div style={{ background:"var(--card)", border:"1px solid var(--border)",
-      borderRadius:"10px", padding:"20px",
-      borderLeft:`3px solid ${account.cloud==="aws" ? "#ff9900" : "#0089d6"}` }}>
-
+    <div style={{
+      background: "var(--card)", border: "1px solid var(--border)",
+      borderRadius: "10px", padding: "20px",
+      borderLeft: `3px solid ${account.cloud === "aws" ? "#ff9900" : "#0089d6"}`,
+      transition: "border-color 0.2s",
+      ...(isActivelyScanning && { borderColor: "rgba(245,166,35,0.35)" }),
+    }}>
       {showEdit && (
         <EditAccountModal account={account} token={token}
           onClose={() => setShowEdit(false)}
@@ -516,6 +605,7 @@ function AccountCard({ account, token, role, onDelete, onScanComplete, onUpdate 
               {account.cloud.toUpperCase()}
             </span>
             <CategoryBadge category={account.category || "General"} />
+            <TeamBadge teamName={account.team_name} />
             <span style={{ color:"var(--accent)", fontSize:"15px",
               fontWeight:700, fontFamily:"var(--font-display)" }}>{account.name}</span>
           </div>
@@ -527,33 +617,54 @@ function AccountCard({ account, token, role, onDelete, onScanComplete, onUpdate 
 
         {/* Score + 3-dot menu */}
         <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
-          {score != null && (
+          {lastScore != null && !isActivelyScanning && (
             <div style={{ textAlign:"center" }}>
-              <div style={{ color:scoreColor(score), fontSize:"24px", fontWeight:800,
-                fontFamily:"var(--font-display)", lineHeight:1 }}>{score}</div>
-              <div style={{ color:scoreColor(score), fontSize:"9px",
-                fontFamily:"var(--font-ui)", letterSpacing:"0.08em" }}>{scoreLabel(score)}</div>
+              <div style={{ color:scoreColor(lastScore), fontSize:"24px", fontWeight:800,
+                fontFamily:"var(--font-display)", lineHeight:1 }}>{lastScore}</div>
+              <div style={{ color:scoreColor(lastScore), fontSize:"9px",
+                fontFamily:"var(--font-ui)", letterSpacing:"0.08em" }}>{scoreLabel(lastScore)}</div>
             </div>
           )}
-          {canScan && <ThreeDotMenu onEdit={() => setShowEdit(true)} onDelete={handleDelete} />}
+          {canEdit && <ThreeDotMenu onEdit={() => setShowEdit(true)} onDelete={handleDelete} />}
         </div>
       </div>
 
-      {/* Meta */}
-      <div style={{ display:"flex", gap:"16px", marginBottom:"16px", flexWrap:"wrap" }}>
+      {/* Meta row: interval + last scanned */}
+      <div style={{ display:"flex", gap:"16px", marginBottom:"14px", flexWrap:"wrap", alignItems:"center" }}>
         <div style={{ color:"var(--accent3)", fontSize:"11px", fontFamily:"var(--font-mono)" }}>
           {account.scan_interval_hours === 0 ? "Manual scans only"
           : account.scan_interval_hours <= 0.3 ? "● Continuous (every 15 min)"
           : account.scan_interval_hours < 1
-            ? `Every ${Math.round(account.scan_interval_hours * 60)} minutes`
+            ? `Every ${Math.round(account.scan_interval_hours * 60)} min`
           : account.scan_interval_hours < 24
             ? `Every ${account.scan_interval_hours}h`
           : account.scan_interval_hours === 168 ? "Weekly"
-          : `Every ${account.scan_interval_hours / 24} days`}
+          : `Every ${account.scan_interval_hours / 24}d`}
         </div>
-        <div style={{ color:"var(--accent3)", fontSize:"11px", fontFamily:"var(--font-mono)",
-          fontStyle: lastScanned ? "normal" : "italic" }}>
-          {lastScanned ? `Last scanned: ${lastScanned}` : "Never scanned"}
+
+        {/* Last scanned indicator */}
+        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+          <div style={{
+            width:6, height:6, borderRadius:"50%", flexShrink:0,
+            background: relTs ? "var(--green)" : "var(--accent3)",
+            ...(isActivelyScanning && {
+              animation: "pulse 1.2s ease-in-out infinite",
+              background: "var(--cyan)",
+            }),
+          }} />
+          <span style={{
+            fontSize:"11px", fontFamily:"var(--font-mono)",
+            color: isActivelyScanning ? "var(--cyan)" : relTs ? "var(--accent2)" : "var(--accent3)",
+            fontStyle: relTs ? "normal" : "italic",
+          }}>
+            {isActivelyScanning
+              ? (isExternallyScanning
+                  ? `Scanning (${scanningBy})…`
+                  : "Scanning…")
+              : relTs
+                ? <>{`Scanned ${relTs}`}<span style={{ color:"var(--accent3)", marginLeft:5 }}>· {clockTs}</span></>
+                : "Never scanned"}
+          </span>
         </div>
       </div>
 
@@ -578,19 +689,24 @@ function AccountCard({ account, token, role, onDelete, onScanComplete, onUpdate 
         </div>
       )}
 
-      {/* Scan button — hidden for viewers */}
+      {/* Scan button */}
       {canScan ? (
-        <button onClick={handleScan} disabled={scanning} className="neon-btn" style={{
-          width:"100%", padding:"8px",
-          border:`1px solid ${scanning ? "rgba(255,230,0,0.2)" : "var(--cyan)"}`,
-          borderRadius:"6px", background:"transparent",
-          color: scanning ? "rgba(255,230,0,0.4)" : "var(--cyan)",
-          fontFamily:"var(--font-ui)", fontWeight:700, fontSize:"12px",
-          letterSpacing:"0.08em", cursor: scanning ? "not-allowed" : "pointer",
-          boxShadow: scanning ? "none" : "var(--glow-cyan)",
-          textShadow: scanning ? "none" : "0 0 6px rgba(255,230,0,0.5)",
-          transition:"all 0.15s" }}>
-          {scanning ? "SCANNING..." : "SCAN NOW"}
+        <button onClick={handleScan}
+          disabled={scanning || isExternallyScanning}
+          className="neon-btn" style={{
+            width:"100%", padding:"8px",
+            border:`1px solid ${isActivelyScanning ? "var(--border)" : "var(--cyan)"}`,
+            borderRadius:"6px", background:"transparent",
+            color: isActivelyScanning ? "var(--accent3)" : "var(--cyan)",
+            fontFamily:"var(--font-ui)", fontWeight:700, fontSize:"12px",
+            letterSpacing:"0.08em",
+            cursor: isActivelyScanning ? "not-allowed" : "pointer",
+            boxShadow: isActivelyScanning ? "none" : "var(--glow-cyan)",
+            transition:"all 0.15s",
+          }}>
+          {scanning ? "SCANNING…"
+            : isExternallyScanning ? `SCANNING (${scanningBy.toUpperCase()})…`
+            : "SCAN NOW"}
         </button>
       ) : (
         <div style={{ width:"100%", padding:"8px", textAlign:"center",
@@ -605,19 +721,19 @@ function AccountCard({ account, token, role, onDelete, onScanComplete, onUpdate 
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-export default function AccountsPage({ token, role, onScanComplete }) {
+export default function AccountsPage({ token, role, user, onScanComplete }) {
   const canScan = role !== "viewer";
-  const [accounts,   setAccounts]   = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [pageError,  setPageError]  = useState(null);
-  const [showModal,  setShowModal]  = useState(false);
+  const [accounts,    setAccounts]    = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [pageError,   setPageError]   = useState(null);
+  const [showModal,   setShowModal]   = useState(false);
+  const [scanningMap, setScanningMap] = useState({});
+  const prevScanningRef = useRef({});
 
-  useEffect(() => { fetchAccounts(); }, []);
-
-  async function fetchAccounts() {
+  const fetchAccounts = useCallback(async () => {
     setPageError(null);
     try {
-      const res  = await fetch(`${API}/accounts`, {
+      const res = await fetch(`${API}/accounts`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       if (res.ok) {
@@ -629,16 +745,68 @@ export default function AccountsPage({ token, role, onScanComplete }) {
       }
     } catch {
       setPageError("Cannot reach the backend server. Please check your connection.");
+    } finally { setLoading(false); }
+  }, [token]);
+
+  // Refresh a single account's data after it finishes scanning
+  const refreshAccount = useCallback(async (accountId) => {
+    try {
+      const res = await fetch(`${API}/accounts`, {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const updated = (data.accounts || []).find(a => String(a.id) === String(accountId));
+        if (updated) {
+          setAccounts(prev => prev.map(a => String(a.id) === String(accountId) ? updated : a));
+        }
+      }
+    } catch { /* silent */ }
+  }, [token]);
+
+  // Poll scanning status every 10s; refresh accounts that just finished scanning
+  useEffect(() => {
+    let cancelled = false;
+
+    async function pollScanning() {
+      try {
+        const res = await fetch(`${API}/accounts/scanning`, {
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const current = data.scanning || {};
+
+        // Find accounts that just stopped scanning
+        const prev = prevScanningRef.current;
+        const justFinished = Object.keys(prev).filter(id => !(id in current));
+        justFinished.forEach(id => refreshAccount(id));
+
+        prevScanningRef.current = current;
+        if (!cancelled) setScanningMap(current);
+      } catch { /* silent — backend may be temporarily unreachable */ }
     }
-    finally { setLoading(false); }
-  }
+
+    pollScanning();
+    const scanInterval = setInterval(pollScanning, 10_000);
+    // Full accounts refresh every 60s to pick up scheduled scan results
+    const fullRefreshInterval = setInterval(() => { if (!cancelled) fetchAccounts(); }, 60_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(scanInterval);
+      clearInterval(fullRefreshInterval);
+    };
+  }, [token, fetchAccounts, refreshAccount]);
+
+  useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
 
   return (
     <div style={{ padding:"32px", maxWidth:"1100px", margin:"0 auto",
                   animation:"fadeIn 0.3s ease" }}>
 
       {showModal && (
-        <AddAccountModal token={token}
+        <AddAccountModal token={token} userRole={user?.role}
           onClose={() => setShowModal(false)}
           onAdded={a => setAccounts(prev => [...prev, a])} />
       )}
@@ -658,7 +826,7 @@ export default function AccountsPage({ token, role, onScanComplete }) {
             padding:"9px 20px", background:"transparent", color:"var(--cyan)",
             border:"1px solid var(--cyan)", borderRadius:"6px", fontFamily:"var(--font-ui)",
             fontWeight:700, fontSize:"13px", cursor:"pointer", letterSpacing:"0.08em",
-            boxShadow:"var(--glow-cyan)", textShadow:"0 0 8px rgba(255,230,0,0.5)",
+            boxShadow:"var(--glow-cyan)",
           }}>+ ADD ACCOUNT</button>
         )}
       </div>
@@ -700,7 +868,7 @@ export default function AccountsPage({ token, role, onScanComplete }) {
               padding:"10px 24px", background:"transparent", color:"var(--cyan)",
               border:"1px solid var(--cyan)", borderRadius:"6px", fontFamily:"var(--font-ui)",
               fontWeight:700, fontSize:"13px", cursor:"pointer", letterSpacing:"0.08em",
-              boxShadow:"var(--glow-cyan)", textShadow:"0 0 8px rgba(255,230,0,0.5)" }}>
+              boxShadow:"var(--glow-cyan)" }}>
               + ADD YOUR FIRST ACCOUNT
             </button>
           )}
@@ -738,6 +906,7 @@ export default function AccountsPage({ token, role, onScanComplete }) {
                 gridTemplateColumns:"repeat(auto-fill, minmax(340px, 1fr))", gap:"16px" }}>
                 {grouped[cat].map(account => (
                   <AccountCard key={account.id} account={account} token={token} role={role}
+                    scanningBy={scanningMap[String(account.id)] || null}
                     onDelete={id => setAccounts(prev => prev.filter(a => a.id !== id))}
                     onUpdate={u  => setAccounts(prev => prev.map(a => a.id===u.id ? {...a,...u} : a))}
                     onScanComplete={onScanComplete} />
