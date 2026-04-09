@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
 # CSPM — One-command setup
-# Usage: ./setup.sh
+# Usage: bash scripts/setup.sh   (run from repo root)
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -42,7 +42,7 @@ fi
 # Auto-generate secret keys
 if grep -q "REPLACE_" .env 2>/dev/null; then
   info "Generating secret keys..."
-  python3 generate_keys.py
+  python3 scripts/generate_keys.py
   success "Keys generated"
 fi
 
