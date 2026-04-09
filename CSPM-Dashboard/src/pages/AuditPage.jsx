@@ -75,15 +75,15 @@ export default function AuditPage({ token, role }) {
     fontFamily: "var(--font-ui)", fontWeight: 700, letterSpacing: "0.08em",
     cursor: "pointer", border: "1px solid var(--border)",
     background: active ? "var(--cyan)" : "transparent",
-    color: active ? "#0e0c09" : "var(--accent3)",
+    color: active ? "#ffffff" : "var(--accent3)",
     transition: "all 0.15s",
   });
 
-  if (role !== "superadmin" && role !== "admin") return (
+  if (!["superadmin", "admin", "analyst"].includes(role)) return (
     <div style={{ padding: "60px 32px", textAlign: "center", color: "var(--accent3)",
                   fontFamily: "var(--font-mono)", fontSize: "13px" }}>
       <div style={{ fontSize: 32, marginBottom: 16 }}>⛔</div>
-      Admin access required.
+      You don't have permission to view this page.
     </div>
   );
 

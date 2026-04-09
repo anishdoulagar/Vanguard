@@ -7,18 +7,18 @@ import {
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const SEV_COLOR = {
-  CRITICAL: "#e05555",
-  HIGH:     "#d97b3a",
-  MEDIUM:   "#c9a84c",
-  LOW:      "#4caf7d",
+  CRITICAL: "#ff3b30",
+  HIGH:     "#ff9500",
+  MEDIUM:   "#ffd60a",
+  LOW:      "#34c759",
 };
 const SEV_ORDER = ["CRITICAL","HIGH","MEDIUM","LOW"];
 
 function scoreLabel(score) {
-  if (score >= 70) return ["LOW RISK",      "#4caf7d"];
-  if (score >= 50) return ["MEDIUM RISK",   "#c9a84c"];
-  if (score >= 30) return ["HIGH RISK",     "#d97b3a"];
-  return             ["CRITICAL RISK", "#e05555"];
+  if (score >= 70) return ["LOW RISK",      "#34c759"];
+  if (score >= 50) return ["MEDIUM RISK",   "#ffd60a"];
+  if (score >= 30) return ["HIGH RISK",     "#ff9500"];
+  return             ["CRITICAL RISK", "#ff3b30"];
 }
 
 function ScoreCard({ label, score }) {

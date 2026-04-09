@@ -2,7 +2,49 @@
  * SetupPage — shown on first run when no users exist.
  * The account created here automatically becomes superadmin.
  */
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+
+function DotGrid() {
+  const canvasRef = useRef(null);
+  const mouse = useRef({ x: -9999, y: -9999 });
+  const raf = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    let W, H, dots = [];
+    const SPACING = 38, GLOW_R = 200;
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      dots = [];
+      for (let x = SPACING / 2; x < W + SPACING; x += SPACING)
+        for (let y = SPACING / 2; y < H + SPACING; y += SPACING)
+          dots.push({ x, y, phase: Math.random() * Math.PI * 2, r: 0.8 + Math.random() * 0.8 });
+    }
+    function draw(t) {
+      ctx.clearRect(0, 0, W, H);
+      const light = document.documentElement.dataset.theme === "light";
+      const { x: mx, y: my } = mouse.current;
+      for (const d of dots) {
+        const dist = Math.hypot(d.x - mx, d.y - my);
+        const near = Math.max(0, 1 - dist / GLOW_R);
+        const pulse = Math.sin(t * 0.0005 + d.phase) * 0.04;
+        const alpha = (light ? 0.09 : 0.13) + near * 0.6 + pulse;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r + near * 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0,113,227,${alpha})`;
+        ctx.fill();
+      }
+      raf.current = requestAnimationFrame(draw);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+    window.addEventListener("mousemove", e => { mouse.current.x = e.clientX; mouse.current.y = e.clientY; });
+    raf.current = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(raf.current); window.removeEventListener("resize", resize); };
+  }, []);
+  return <canvas ref={canvasRef} style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }} />;
+}
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -108,195 +150,114 @@ export default function SetupPage({ onSetupComplete }) {
 
   return (
     <div style={{
-      minHeight: "100vh", display: "flex",
-      background: "var(--bg)",
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      background: "var(--bg)", padding: "24px", position: "relative", overflow: "hidden",
     }}>
+      <DotGrid />
 
-      {/* ── Left panel ── */}
+      {/* Radial glow */}
       <div style={{
-        width: 420, flexShrink: 0,
-        background: "var(--surface)", borderRight: "1px solid var(--border)",
-        display: "flex", flexDirection: "column",
-        padding: "60px 48px",
-      }}>
+        position: "fixed", top: "50%", left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: 600, height: 400,
+        background: "radial-gradient(ellipse, rgba(0,113,227,0.04) 0%, transparent 68%)",
+        pointerEvents: "none", zIndex: 1,
+      }} />
 
-        {/* Logo */}
-        <div style={{ marginBottom: 48 }}>
-          <div style={{
-            fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 900,
-            color: "var(--cyan)", letterSpacing: "0.1em",
-          }}>VANGUARD</div>
-          <div style={{
-            fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--accent3)",
-            marginTop: 6, letterSpacing: "0.06em",
-          }}>Cloud Security Posture Management</div>
-        </div>
-
-        {/* Step indicator */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 10, marginBottom: 32,
-        }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: "50%",
-            background: "rgba(79,143,247,0.1)", border: "1px solid rgba(79,143,247,0.3)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--cyan)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
-          }}>1</div>
-          <div style={{ color: "var(--cyan)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 13 }}>
-            Create Superadmin
-          </div>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32, opacity: 0.5 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: "50%",
-            border: "1px solid var(--border)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--accent3)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
-          }}>2</div>
-          <div style={{ color: "var(--accent3)", fontFamily: "var(--font-ui)", fontSize: 13 }}>
-            Add Cloud Accounts
-          </div>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10, opacity: 0.5 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: "50%",
-            border: "1px solid var(--border)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--accent3)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
-          }}>3</div>
-          <div style={{ color: "var(--accent3)", fontFamily: "var(--font-ui)", fontSize: 13 }}>
-            Run Your First Scan
-          </div>
-        </div>
-
-        {/* Info box */}
-        <div style={{
-          marginTop: "auto",
-          padding: "16px", borderRadius: "var(--radius)",
-          background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.15)",
-        }}>
-          <div style={{
-            fontFamily: "var(--font-ui)", fontSize: 11, fontWeight: 700,
-            color: "var(--orange)", letterSpacing: "0.08em", marginBottom: 6,
-          }}>FIRST-TIME SETUP</div>
-          <div style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--accent2)", lineHeight: 1.7 }}>
-            No users exist yet. The account you create here will be the{" "}
-            <span style={{ color: "var(--magenta)", fontWeight: 700 }}>superadmin</span>
-            {" "}&mdash; it has full control over users, roles, and platform settings.
-          </div>
-        </div>
-
-      </div>
-
-      {/* ── Right panel ── */}
+      {/* Card */}
       <div style={{
-        flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-        padding: "60px 40px",
+        position: "relative", zIndex: 2,
+        width: "100%", maxWidth: 440,
+        background: "var(--card)",
+        borderRadius: 18,
+        boxShadow: "rgba(0,0,0,0.22) 3px 5px 30px 0px, rgba(0,0,0,0.5) 0 16px 60px 0px",
       }}>
-        <div style={{ width: "100%", maxWidth: 440 }}>
+        <div style={{ background: "var(--card)", borderRadius: 18, padding: "44px 40px" }}>
 
-          <div style={{ marginBottom: 32 }}>
-            <h1 style={{
-              fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800,
-              color: "var(--accent)", margin: 0, letterSpacing: "0.04em",
-            }}>Initialize Superadmin</h1>
-            <p style={{
-              fontFamily: "var(--font-ui)", fontSize: 13, color: "var(--accent3)",
-              marginTop: 8, lineHeight: 1.6,
-            }}>
-              This will be the root account for your CSPM instance.
-              You can create additional users and assign roles after setup.
-            </p>
-          </div>
-
-          {/* Form card */}
-          <div style={{
-            background: "var(--card)", border: "1px solid var(--border)",
-            borderRadius: "var(--radius-lg)", padding: "32px",
-            boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
-          }}>
-            {/* Superadmin badge */}
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
             <div style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "5px 10px", borderRadius: 5, marginBottom: 24,
-              background: "rgba(232,67,147,0.08)", border: "1px solid rgba(232,67,147,0.2)",
+              width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+              background: "rgba(0,113,227,0.12)", border: "1.5px solid rgba(0,113,227,0.3)",
+              display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cyan)",
             }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                   stroke="var(--magenta)" strokeWidth="2.5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
-              <span style={{
-                fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
-                color: "var(--magenta)", letterSpacing: "0.1em",
-              }}>SUPERADMIN</span>
             </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <label style={labelStyle}>Full Name</label>
-              <input
-                type="text" placeholder="Your name"
-                value={name} onChange={e => setName(e.target.value)}
-                style={inputStyle} autoComplete="name"
-              />
+            <div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: 16, letterSpacing: "0.1em", color: "var(--cyan)" }}>VANGUARD</div>
+              <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--accent3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Initial Setup</div>
             </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <label style={labelStyle}>Username</label>
-              <input
-                type="text" placeholder="choose a username"
-                value={username} onChange={e => setUsername(e.target.value)}
-                style={inputStyle} autoComplete="username"
-              />
-            </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <label style={labelStyle}>Email Address</label>
-              <input
-                type="email" placeholder="you@example.com"
-                value={email} onChange={e => setEmail(e.target.value)}
-                style={inputStyle} autoComplete="email"
-              />
-            </div>
-
-            <PasswordField label="Password" value={password} onChange={setPassword} />
-
-            {error && (
-              <div style={{
-                padding: "10px 14px", borderRadius: "var(--radius)", marginBottom: 16,
-                background: "rgba(239,68,68,0.08)", color: "var(--red)",
-                border: "1px solid rgba(239,68,68,0.2)",
-                fontSize: 12, fontFamily: "var(--font-ui)",
-              }}>{error}</div>
-            )}
-
-            <button
-              onClick={handleCreate}
-              disabled={loading}
-              onKeyDown={e => e.key === "Enter" && handleCreate()}
-              style={{
-                width: "100%", padding: 13,
-                background: loading ? "transparent" : "var(--cyan)",
-                color: loading ? "var(--accent3)" : "#0e0c09",
-                border: loading ? "1px solid var(--border)" : "none",
-                borderRadius: "var(--radius)",
-                fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 13,
-                letterSpacing: "0.04em", cursor: loading ? "not-allowed" : "pointer",
-                transition: "all 0.15s",
-              }}
-            >
-              {loading ? "Creating account..." : "Create Superadmin Account"}
-            </button>
           </div>
 
-          <p style={{
-            fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--accent3)",
-            textAlign: "center", marginTop: 20, lineHeight: 1.6,
+          {/* First-time setup notice */}
+          <div style={{
+            padding: "10px 13px", borderRadius: 8, marginBottom: 28,
+            background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.18)",
           }}>
-            After setup, additional users can be invited and assigned roles
-            (viewer, analyst, admin) from the admin panel.
-          </p>
+            <div style={{ fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, color: "var(--orange)", letterSpacing: "0.08em", marginBottom: 4 }}>
+              FIRST-TIME SETUP
+            </div>
+            <div style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--accent2)", lineHeight: 1.6 }}>
+              No users exist yet. This account will become the{" "}
+              <span style={{ color: "var(--magenta)", fontWeight: 700 }}>superadmin</span> with full platform control.
+            </div>
+          </div>
+
+          {/* Superadmin badge */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "4px 10px", borderRadius: 5, marginBottom: 24,
+            background: "rgba(232,67,147,0.08)", border: "1px solid rgba(232,67,147,0.2)",
+          }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--magenta)" strokeWidth="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span style={{ fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, color: "var(--magenta)", letterSpacing: "0.1em" }}>SUPERADMIN</span>
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Full Name</label>
+            <input type="text" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} style={inputStyle} autoComplete="name" />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Username</label>
+            <input type="text" placeholder="choose a username" value={username} onChange={e => setUsername(e.target.value)} style={inputStyle} autoComplete="username" />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Email Address</label>
+            <input type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} autoComplete="email" />
+          </div>
+          <PasswordField label="Password" value={password} onChange={setPassword} />
+
+          {error && (
+            <div style={{
+              padding: "10px 14px", borderRadius: 8, marginBottom: 16,
+              background: "rgba(239,68,68,0.08)", color: "var(--red)",
+              border: "1px solid rgba(239,68,68,0.2)",
+              fontSize: 12, fontFamily: "var(--font-ui)",
+            }}>{error}</div>
+          )}
+
+          <button
+            onClick={handleCreate}
+            disabled={loading}
+            onKeyDown={e => e.key === "Enter" && handleCreate()}
+            style={{
+              width: "100%", padding: 13,
+              background: loading ? "transparent" : "var(--cyan)",
+              color: loading ? "var(--accent3)" : "#ffffff",
+              border: loading ? "1px solid var(--border)" : "none",
+              borderRadius: 8,
+              fontFamily: "var(--font-ui)", fontWeight: 400, fontSize: 14,
+              letterSpacing: "-0.224px", cursor: loading ? "not-allowed" : "pointer",
+              transition: "all 0.15s",
+              boxShadow: !loading ? "rgba(0,113,227,0.22) 3px 5px 30px 0px" : "none",
+            }}
+          >
+            {loading ? "Creating account..." : "Create Superadmin Account →"}
+          </button>
 
         </div>
       </div>

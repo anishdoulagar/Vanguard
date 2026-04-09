@@ -38,7 +38,7 @@ function TeamBadge({ teamName }) {
     <span style={{
       padding: "2px 7px", borderRadius: 4, fontSize: 9, fontWeight: 700,
       fontFamily: "var(--font-ui)", letterSpacing: "0.06em",
-      background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.25)",
+      background: "rgba(0,113,227,0.08)", border: "1px solid rgba(0,113,227,0.25)",
       color: "var(--cyan)",
     }}>⬡ {teamName}</span>
   );
@@ -280,7 +280,7 @@ function AddAccountModal({ token, userRole, onClose, onAdded }) {
         )}
         {teams.length === 1 && (
           <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 6,
-            background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.15)" }}>
+            background: "rgba(0,113,227,0.06)", border: "1px solid rgba(0,113,227,0.15)" }}>
             <span style={{ fontSize: 11, color: "var(--accent3)" }}>Team: </span>
             <span style={{ fontSize: 11, fontWeight: 600, color: "var(--cyan)" }}>{teams[0].name}</span>
           </div>
@@ -586,7 +586,7 @@ function AccountCard({ account, token, role, scanningBy, onDelete, onScanComplet
       borderRadius: "10px", padding: "20px",
       borderLeft: `3px solid ${account.cloud === "aws" ? "#ff9900" : "#0089d6"}`,
       transition: "border-color 0.2s",
-      ...(isActivelyScanning && { borderColor: "rgba(245,166,35,0.35)" }),
+      ...(isActivelyScanning && { borderColor: "rgba(0,113,227,0.5)" }),
     }}>
       {showEdit && (
         <EditAccountModal account={account} token={token}

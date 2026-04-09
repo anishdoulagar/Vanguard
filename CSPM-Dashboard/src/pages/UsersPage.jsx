@@ -418,8 +418,8 @@ function TeamManagerModal({ targetUser, token, allTeams, onClose }) {
                 ) : (
                   <button style={{
                     padding: "4px 10px", borderRadius: 5, fontSize: 10, fontWeight: 700,
-                    cursor: "pointer", border: "1px solid rgba(245,166,35,0.3)",
-                    background: "rgba(245,166,35,0.08)", color: "var(--cyan)",
+                    cursor: "pointer", border: "1px solid rgba(0,113,227,0.3)",
+                    background: "rgba(0,113,227,0.08)", color: "var(--cyan)",
                   }} onClick={() => addToTeam(t.id)} disabled={busy === t.id}>
                     {busy === t.id ? "…" : "Add"}
                   </button>
@@ -441,12 +441,159 @@ function TeamManagerModal({ targetUser, token, allTeams, onClose }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+// ── Reset Password Modal ──────────────────────────────────────────────────────
+
+function ResetPasswordModal({ targetUser, token, onClose }) {
+  const [newPwd,    setNewPwd]    = useState("");
+  const [confirmPwd,setConfirmPwd]= useState("");
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState(null);
+  const [success,   setSuccess]   = useState(false);
+
+  async function handleReset() {
+    if (!newPwd) { setError("Password is required."); return; }
+    if (newPwd.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (newPwd !== confirmPwd) { setError("Passwords do not match."); return; }
+    setLoading(true); setError(null);
+    try {
+      const res  = await fetch(`${API}/admin/users/${targetUser.id}/reset-password`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ new_password: newPwd }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.detail || "Failed to reset password."); return; }
+      setSuccess(true);
+    } catch { setError("Network error."); }
+    finally  { setLoading(false); }
+  }
+
+  const inp = {
+    width: "100%", background: "var(--card)", border: "1px solid var(--border)",
+    borderRadius: 6, padding: "9px 12px", color: "var(--accent)",
+    fontFamily: "var(--font-mono)", fontSize: 13, boxSizing: "border-box", outline: "none",
+  };
+  const lbl = {
+    display: "block", color: "var(--accent3)", fontSize: 10, fontWeight: 700,
+    letterSpacing: "0.1em", marginBottom: 6, textTransform: "uppercase",
+    fontFamily: "var(--font-ui)",
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 200,
+      background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        width: "100%", maxWidth: 400,
+        background: "var(--surface)", border: "1px solid var(--border)",
+        borderRadius: 12, boxShadow: "0 24px 64px rgba(0,0,0,0.5)", overflow: "hidden",
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "16px 20px", borderBottom: "1px solid var(--border)",
+        }}>
+          <div>
+            <div style={{ fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 14, color: "var(--accent)" }}>
+              Reset Password
+            </div>
+            <div style={{ fontSize: 11, color: "var(--accent3)", marginTop: 2 }}>
+              {targetUser.name} · {targetUser.email}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent3)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div style={{ padding: "20px 24px" }}>
+          {success ? (
+            <div>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10, marginBottom: 20,
+                padding: "12px 16px", borderRadius: 8,
+                background: "rgba(76,175,125,0.08)", border: "1px solid rgba(76,175,125,0.25)",
+                color: "#4caf7d", fontFamily: "var(--font-ui)", fontSize: 13,
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Password reset successfully. The user must log in again.
+              </div>
+              <button onClick={onClose} style={{
+                width: "100%", padding: 10, borderRadius: 6, cursor: "pointer",
+                background: "rgba(123,140,222,0.15)", border: "1px solid rgba(123,140,222,0.3)",
+                color: "#7b8cde", fontFamily: "var(--font-ui)", fontWeight: 700,
+                fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase",
+              }}>Done</button>
+            </div>
+          ) : (
+            <>
+              <div style={{
+                padding: "10px 14px", borderRadius: 7, marginBottom: 18,
+                background: "rgba(217,123,58,0.06)", border: "1px solid rgba(217,123,58,0.2)",
+                fontFamily: "var(--font-ui)", fontSize: 12, color: "#d97b3a", lineHeight: 1.6,
+              }}>
+                This sets a new password for the user without requiring their current one.
+                The user's existing sessions will remain valid until they expire.
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={lbl}>New Password</label>
+                <input type="password" placeholder="Min. 8 characters" value={newPwd}
+                       onChange={e => setNewPwd(e.target.value)} style={inp} />
+              </div>
+              <div style={{ marginBottom: 18 }}>
+                <label style={lbl}>Confirm Password</label>
+                <input type="password" placeholder="Repeat password" value={confirmPwd}
+                       onChange={e => setConfirmPwd(e.target.value)}
+                       onKeyDown={e => e.key === "Enter" && handleReset()}
+                       style={inp} />
+              </div>
+
+              {error && (
+                <div style={{
+                  padding: "8px 12px", borderRadius: 6, marginBottom: 14,
+                  background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.25)",
+                  color: "#e05555", fontSize: 12, fontFamily: "var(--font-mono)",
+                }}>{error}</div>
+              )}
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={onClose} style={{
+                  flex: 1, padding: 10, borderRadius: 6, cursor: "pointer",
+                  background: "transparent", border: "1px solid var(--border)",
+                  color: "var(--accent3)", fontFamily: "var(--font-ui)", fontWeight: 600, fontSize: 12,
+                }}>Cancel</button>
+                <button onClick={handleReset} disabled={loading} style={{
+                  flex: 2, padding: 10, borderRadius: 6,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  background: loading ? "rgba(123,140,222,0.4)" : "rgba(123,140,222,0.8)",
+                  border: "none", color: "#111214",
+                  fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 12,
+                  letterSpacing: "0.06em", textTransform: "uppercase",
+                }}>{loading ? "Resetting..." : "Reset Password"}</button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function UsersPage({ token, currentUser }) {
   const [users,       setUsers]       = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
   const [showInvite,  setShowInvite]  = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [resetTarget, setResetTarget] = useState(null);
   const [teamTarget, setTeamTarget]   = useState(null);
   const [allTeams, setAllTeams]       = useState([]);
 
@@ -554,10 +701,11 @@ export default function UsersPage({ token, currentUser }) {
   );
 
   return (
-    <div style={{ padding: "32px 40px", maxWidth: 1100 }}>
+    <div style={{ padding: "32px 40px", maxWidth: 1200 }}>
 
       {showInvite && <InviteUserModal token={token} onClose={() => setShowInvite(false)} />}
       {deleteTarget && <DeleteConfirmModal user={deleteTarget} token={token} onDeleted={onUserDeleted} onClose={() => setDeleteTarget(null)} />}
+      {resetTarget && <ResetPasswordModal targetUser={resetTarget} token={token} onClose={() => setResetTarget(null)} />}
       {teamTarget && <TeamManagerModal targetUser={teamTarget} token={token} allTeams={allTeams} onClose={() => setTeamTarget(null)} />}
 
       {/* Header */}
@@ -599,10 +747,10 @@ export default function UsersPage({ token, currentUser }) {
 
         {/* Column headers */}
         <div style={{
-          display: "grid", gridTemplateColumns: "1fr 160px 100px 180px 180px 130px",
+          display: "grid", gridTemplateColumns: "1fr 90px 90px 148px 158px 68px 200px",
           padding: "10px 20px", borderBottom: "1px solid var(--border)", background: "rgba(0,0,0,0.2)",
         }}>
-          {["USER", "ROLE", "STATUS", "ACCESS EXPIRES", "PERMISSIONS", "ACTIONS"].map(h => (
+          {["USER", "ROLE", "STATUS", "ACCESS EXPIRES", "PERMISSIONS", "MFA", "ACTIONS"].map(h => (
             <div key={h} style={{ fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, color: "var(--accent3)", letterSpacing: "0.1em" }}>{h}</div>
           ))}
         </div>
@@ -621,7 +769,7 @@ export default function UsersPage({ token, currentUser }) {
 
           return (
             <div key={u.id} style={{
-              display: "grid", gridTemplateColumns: "1fr 160px 100px 180px 180px 130px",
+              display: "grid", gridTemplateColumns: "1fr 90px 90px 148px 158px 68px 200px",
               padding: "14px 20px", alignItems: "center",
               borderBottom: i < users.length - 1 ? "1px solid var(--border)" : "none",
               background: inactive ? "rgba(224,85,85,0.03)" : isSelf ? "rgba(123,140,222,0.04)" : "transparent",
@@ -646,45 +794,48 @@ export default function UsersPage({ token, currentUser }) {
 
               {/* Active toggle */}
               <div>
-                {isSelf ? (
-                  <span style={{ fontSize: 11, color: "#4caf7d", fontFamily: "var(--font-ui)" }}>Active</span>
-                ) : (
-                  <button onClick={() => toggleActive(u)} disabled={rs.metaUpdating} style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "4px 10px", borderRadius: 5, cursor: "pointer",
+                <button
+                  onClick={() => !isSelf && toggleActive(u)}
+                  disabled={isSelf || rs.metaUpdating}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    padding: "4px 9px", borderRadius: 5,
+                    cursor: isSelf ? "default" : "pointer",
                     border: `1px solid ${u.is_active ? "rgba(76,175,125,0.4)" : "rgba(224,85,85,0.4)"}`,
                     background: u.is_active ? "rgba(76,175,125,0.1)" : "rgba(224,85,85,0.1)",
                     color: u.is_active ? "#4caf7d" : "#e05555",
-                    fontFamily: "var(--font-ui)", fontSize: 11, fontWeight: 700,
+                    fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
                     letterSpacing: "0.06em", textTransform: "uppercase",
+                    opacity: isSelf ? 0.7 : 1,
                     transition: "all 0.15s",
-                  }}>
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor" }} />
-                    {u.is_active ? "Active" : "Disabled"}
-                  </button>
-                )}
+                  }}
+                >
+                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", flexShrink: 0 }} />
+                  {u.is_active ? "Active" : "Off"}
+                </button>
               </div>
 
               {/* Valid until */}
-              <div>
+              <div style={{ minWidth: 0 }}>
                 {isSelf ? (
                   <span style={{ fontSize: 11, color: "var(--accent3)", fontFamily: "var(--font-ui)" }}>—</span>
                 ) : (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <input type="date" value={rs.validUntil ?? ""}
                            onChange={e => setRow(u.id, { validUntil: e.target.value })}
                            style={{
                              background: "var(--card)", border: "1px solid var(--border)",
-                             borderRadius: 5, padding: "4px 8px",
+                             borderRadius: 5, padding: "4px 6px",
                              color: expired ? "#e05555" : "var(--accent)",
-                             fontFamily: "var(--font-mono)", fontSize: 11,
+                             fontFamily: "var(--font-mono)", fontSize: 10,
                              colorScheme: "dark", outline: "none",
+                             width: "100%", maxWidth: 120, minWidth: 0,
                            }} />
                     {expiryChanged && (
                       <button onClick={() => applyValidUntil(u)} disabled={rs.metaUpdating} style={{
-                        padding: "4px 8px", borderRadius: 5, border: "none", cursor: "pointer",
+                        padding: "4px 7px", borderRadius: 5, border: "none", cursor: "pointer",
                         background: "rgba(123,140,222,0.6)", color: "#111214",
-                        fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
+                        fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, flexShrink: 0,
                       }}>Set</button>
                     )}
                   </div>
@@ -692,30 +843,29 @@ export default function UsersPage({ token, currentUser }) {
               </div>
 
               {/* Role change */}
-              <div>
+              <div style={{ minWidth: 0 }}>
                 {isSelf ? (
                   <RoleBadge role={u.role} />
                 ) : (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <select value={rs.selectedRole || u.role}
                             onChange={e => setRow(u.id, { selectedRole: e.target.value, roleSuccess: null, roleError: null })}
                             style={{
                               background: "var(--card)", border: "1px solid var(--border)",
-                              borderRadius: 6, padding: "5px 8px",
+                              borderRadius: 6, padding: "5px 6px",
                               color: ROLE_META[rs.selectedRole || u.role]?.color || "var(--accent)",
-                              fontFamily: "var(--font-ui)", fontSize: 11, fontWeight: 700,
-                              letterSpacing: "0.06em", cursor: "pointer", outline: "none",
-                              textTransform: "uppercase",
+                              fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
+                              letterSpacing: "0.05em", cursor: "pointer", outline: "none",
+                              textTransform: "uppercase", minWidth: 0, maxWidth: "100%",
                             }}>
                       {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                     {roleChanged && (
                       <button onClick={() => applyRole(u)} disabled={rs.updating} style={{
-                        padding: "5px 10px", borderRadius: 5, border: "none", cursor: "pointer",
+                        padding: "5px 8px", borderRadius: 5, border: "none", cursor: "pointer",
                         background: "rgba(123,140,222,0.8)", color: "#111214",
-                        fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
-                        letterSpacing: "0.06em", textTransform: "uppercase",
-                      }}>{rs.updating ? "..." : "Save"}</button>
+                        fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, flexShrink: 0,
+                      }}>{rs.updating ? "…" : "Save"}</button>
                     )}
                   </div>
                 )}
@@ -723,20 +873,56 @@ export default function UsersPage({ token, currentUser }) {
                 {rs.roleError   && <div style={{ fontSize: 10, color: "#e05555", fontFamily: "var(--font-ui)", marginTop: 3 }}>{rs.roleError}</div>}
               </div>
 
+              {/* MFA status */}
+              <div>
+                {u.mfa_enabled ? (
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    padding: "3px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700,
+                    letterSpacing: "0.07em", textTransform: "uppercase",
+                    background: "rgba(76,175,125,0.10)", border: "1px solid rgba(76,175,125,0.30)",
+                    color: "#4caf7d",
+                  }}>
+                    <span style={{ fontSize: 7 }}>●</span> ON
+                  </span>
+                ) : (
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    padding: "3px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700,
+                    letterSpacing: "0.07em", textTransform: "uppercase",
+                    background: "rgba(136,153,170,0.07)", border: "1px solid rgba(136,153,170,0.2)",
+                    color: "var(--accent3)",
+                  }}>
+                    <span style={{ fontSize: 7 }}>○</span> OFF
+                  </span>
+                )}
+              </div>
+
               {/* Actions */}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <button onClick={() => setTeamTarget(u)} style={{
-                  padding: "5px 9px", borderRadius: 5, cursor: "pointer",
-                  background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.25)",
-                  color: "var(--cyan)", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
-                  letterSpacing: "0.04em", transition: "all 0.15s",
-                }}>Teams</button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <div style={{ display: "flex", gap: 5 }}>
+                  <button onClick={() => setTeamTarget(u)} style={{
+                    padding: "4px 10px", borderRadius: 5, cursor: "pointer",
+                    background: "rgba(0,113,227,0.08)", border: "1px solid rgba(0,113,227,0.25)",
+                    color: "var(--cyan)", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
+                    letterSpacing: "0.04em", transition: "all 0.15s", whiteSpace: "nowrap",
+                  }}>Teams</button>
+                  {!isSelf && (
+                    <button onClick={() => setResetTarget(u)} style={{
+                      padding: "4px 10px", borderRadius: 5, cursor: "pointer",
+                      background: "rgba(123,140,222,0.08)", border: "1px solid rgba(123,140,222,0.25)",
+                      color: "#7b8cde", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
+                      letterSpacing: "0.04em", transition: "all 0.15s", whiteSpace: "nowrap",
+                    }}>Reset Pwd</button>
+                  )}
+                </div>
                 {!isSelf && (
                   <button onClick={() => setDeleteTarget(u)} style={{
-                    padding: "5px 10px", borderRadius: 5, cursor: "pointer",
+                    padding: "4px 10px", borderRadius: 5, cursor: "pointer",
                     background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.3)",
                     color: "#e05555", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
                     letterSpacing: "0.06em", textTransform: "uppercase", transition: "all 0.15s",
+                    alignSelf: "flex-start",
                   }}
                     onMouseEnter={e => e.currentTarget.style.background = "rgba(224,85,85,0.18)"}
                     onMouseLeave={e => e.currentTarget.style.background = "rgba(224,85,85,0.08)"}

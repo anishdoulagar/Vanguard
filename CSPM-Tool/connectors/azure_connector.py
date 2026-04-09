@@ -4,7 +4,7 @@ Collects raw configuration data from Azure services.
 Uses Service Principal (ClientSecretCredential) — credentials never stored.
 """
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from azure.identity import ClientSecretCredential
 from azure.mgmt.resource  import ResourceManagementClient
 from azure.mgmt.storage   import StorageManagementClient

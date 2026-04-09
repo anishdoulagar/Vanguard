@@ -9,10 +9,10 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 /* ── Palette & helpers ──────────────────────────────────────────────────────── */
 const S = {
-  CRITICAL: { color: "#e05555", bg: "rgba(224,85,85,0.10)",  label: "CRITICAL" },
-  HIGH:     { color: "#f5782a", bg: "rgba(245,120,42,0.10)", label: "HIGH" },
-  MEDIUM:   { color: "#f5a623", bg: "rgba(245,166,35,0.08)", label: "MEDIUM" },
-  LOW:      { color: "#4dc882", bg: "rgba(77,200,130,0.07)", label: "LOW" },
+  CRITICAL: { color: "#ff3b30", bg: "rgba(255,59,48,0.10)",  label: "CRITICAL" },
+  HIGH:     { color: "#ff9500", bg: "rgba(255,149,0,0.10)",  label: "HIGH" },
+  MEDIUM:   { color: "#ffd60a", bg: "rgba(255,214,10,0.10)", label: "MEDIUM" },
+  LOW:      { color: "#34c759", bg: "rgba(52,199,89,0.08)",  label: "LOW" },
 };
 const SEV_LIST = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
@@ -204,7 +204,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
     return true;
   }), [findings, sevPick, statusPick, search, statuses]);
 
-  const trendColors = ["#f5a623", "#c084fc", "#4dc882", "#f5782a", "#e05555"];
+  const trendColors = ["#0071e3", "#bf5af2", "#34c759", "#ff9500", "#ff3b30"];
 
   /* ── Layout uses a 12-col mental grid ─────────────────────────────────────── */
   const font = (size, weight = 400) => ({
@@ -213,7 +213,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
   const mono = (size) => ({ fontFamily: "var(--font-mono)", fontSize: size });
 
   return (
-    <div style={{ padding: "28px 36px 52px", maxWidth: 1440, margin: "0 auto" }}>
+    <div style={{ padding: "24px 32px 48px", maxWidth: 1440, margin: "0 auto" }}>
 
       {/* ── Toast ── */}
       {toast && (
@@ -291,7 +291,8 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
 
         {/* Score hero */}
         <div style={{
-          background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
+          background: "var(--card)", borderRadius: 12,
+          boxShadow: "rgba(0,0,0,0.22) 3px 5px 30px 0px",
           padding: "24px 28px", display: "flex", flexDirection: "column",
           justifyContent: "center", alignItems: "center", position: "relative",
         }}>
@@ -327,7 +328,8 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
           {/* Accounts card */}
           <div style={{
-            background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
+            background: "var(--card)", borderRadius: 12,
+            boxShadow: "rgba(0,0,0,0.22) 3px 5px 30px 0px",
             padding: "18px 16px", display: "flex", flexDirection: "column", justifyContent: "space-between",
           }}>
             <div style={{ ...font(9, 700), color: "var(--accent3)", letterSpacing: "0.12em" }}>ACCOUNTS</div>
@@ -575,7 +577,8 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
       {/* ═══════════════════ TREND ═══════════════════ */}
       {trend.length > 1 && (
         <div style={{
-          background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
+          background: "var(--card)", borderRadius: 12,
+          boxShadow: "rgba(0,0,0,0.22) 3px 5px 30px 0px",
           marginBottom: 14, padding: "16px 18px 8px",
         }}>
           <div style={{ ...font(10, 700), color: "var(--accent3)", letterSpacing: "0.12em",
@@ -609,7 +612,8 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
 
       {/* ═══════════════════ FINDINGS TABLE ═══════════════════ */}
       <div style={{
-        background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
+        background: "var(--card)", borderRadius: 12,
+        boxShadow: "rgba(0,0,0,0.22) 3px 5px 30px 0px",
       }}>
         {/* Toolbar */}
         <div style={{
