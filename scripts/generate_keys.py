@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Run this ONCE after cloning to generate real secret keys in .env
-  python3 generate_keys.py
+  python3 scripts/generate_keys.py   (run from repo root)
 """
 import secrets
 import re
@@ -17,7 +17,7 @@ except ImportError:
 encrypt_key = Fernet.generate_key().decode()
 jwt_secret  = secrets.token_hex(32)
 
-env_path = os.path.join(os.path.dirname(__file__), ".env")
+env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 
 with open(env_path, "r") as f:
     content = f.read()
