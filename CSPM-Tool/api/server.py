@@ -45,6 +45,7 @@ from database.models import (
     update_team, delete_team, get_team_members, add_team_member,
     remove_team_member, is_member_of_team, get_user_team_ids,
     get_user_mfa, save_mfa_secret, enable_mfa, disable_mfa, update_mfa_backup_codes,
+    get_users_in_teams,
 )
 from auth.password     import hash_password, verify_password
 from auth.jwt_handler  import create_token, create_mfa_pending_token, decode_mfa_pending_token
@@ -270,6 +271,7 @@ class UpdateRoleRequest(BaseModel):
 class AdminInviteRequest(BaseModel):
     email:       str
     role:        str           = "analyst"
+    team_id:     Optional[str] = None  # required when admin belongs to multiple teams
 
 class AcceptInviteRequest(BaseModel):
     token:    str
@@ -280,6 +282,9 @@ class AcceptInviteRequest(BaseModel):
 class PatchUserRequest(BaseModel):
     is_active:   Optional[bool] = None
     valid_until: Optional[str]  = None   # ISO date string or "" to clear
+
+class AdminForceResetRequest(BaseModel):
+    new_password: str
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -425,6 +430,20 @@ async def _run_scan_engine(cloud: str, aws_creds: dict = None,
         "resources_scanned": len(resources),
         "cloud":             cloud,
     }
+
+
+async def is_member_of_team_any(conn, admin_user_id: str, target_user_id: str) -> bool:
+    """Returns True if target_user_id shares at least one team with admin_user_id."""
+    row = await conn.fetchval(
+        """
+        SELECT 1 FROM team_members a
+        JOIN team_members b ON a.team_id = b.team_id
+        WHERE a.user_id = $1 AND b.user_id = $2
+        LIMIT 1
+        """,
+        admin_user_id, target_user_id,
+    )
+    return row is not None
 
 
 # ── In-process scan tracking ─────────────────────────────────────────────────
@@ -1533,7 +1552,7 @@ async def list_custom_rules(user=Depends(get_current_user)):
 
 @app.post("/custom-rules")
 async def create_custom_rule(rule: CustomRuleCreate,
-                              user=Depends(require_role("admin"))):
+                              user=Depends(require_role("analyst"))):
     try:
         save_custom_rule(rule.dict())
         return {"status": "created", "rule_id": rule.rule_id}
@@ -1588,6 +1607,7 @@ async def save_alert_settings(
     user=Depends(require_role("analyst")), conn=Depends(get_conn)
 ):
     """Create or update alert settings for an account."""
+    role = user.get("role", "analyst")
     if not (0 <= req.score_threshold <= 100):
         raise HTTPException(status_code=422, detail="score_threshold must be 0–100.")
     account = await get_account(conn, req.account_id)
@@ -1601,7 +1621,6 @@ async def save_alert_settings(
             raise HTTPException(status_code=403, detail="Access denied.")
 
     # Enforce field permissions: only admin+ can set medium/new_finding alerts
-    role = user.get("role", "analyst")
     can_advanced = role in ("admin", "superadmin")
     settings = await upsert_alert_settings(
         conn,
@@ -1697,25 +1716,112 @@ async def save_system_alerts(
 
 @app.get("/admin/users")
 async def admin_list_users(user=Depends(require_role("admin")), conn=Depends(get_conn)):
-    return {"users": await get_all_users(conn)}
+    # Superadmin sees all users; admin sees only users in their own teams
+    if user.get("role") == "superadmin":
+        return {"users": await get_all_users(conn)}
+    rows = await get_users_in_teams(conn, str(user["id"]))
+    result = []
+    for u in rows:
+        result.append({
+            "id":          str(u["id"]),
+            "email":       u["email"],
+            "name":        u["name"],
+            "username":    u.get("username"),
+            "role":        u["role"],
+            "is_active":   u["is_active"],
+            "valid_until": u["valid_until"].isoformat() if u.get("valid_until") else None,
+            "created_at":  u["created_at"].isoformat() if u.get("created_at") else None,
+            "mfa_enabled": bool(u.get("mfa_enabled", False)),
+            "account_count": 0,
+            "scan_count":    0,
+        })
+    return {"users": result}
+
+
+@app.get("/admin/team-users")
+async def admin_team_users(user=Depends(require_role("admin")), conn=Depends(get_conn)):
+    """Returns all users who share a team with the requesting admin."""
+    rows = await get_users_in_teams(conn, str(user["id"]))
+    result = []
+    for u in rows:
+        result.append({
+            "id":          str(u["id"]),
+            "email":       u["email"],
+            "name":        u["name"],
+            "username":    u.get("username"),
+            "role":        u["role"],
+            "is_active":   u["is_active"],
+            "valid_until": u["valid_until"].isoformat() if u.get("valid_until") else None,
+            "created_at":  u["created_at"].isoformat() if u.get("created_at") else None,
+            "mfa_enabled": bool(u.get("mfa_enabled", False)),
+        })
+    return {"users": result}
+
+
+@app.post("/admin/users/{target_user_id}/reset-password")
+async def admin_force_reset_password(
+    target_user_id: str,
+    req: AdminForceResetRequest,
+    user=Depends(require_role("admin")),
+    conn=Depends(get_conn),
+):
+    """Force-reset a user's password. Superadmin: anyone. Admin: only their team members (analyst/viewer)."""
+    if target_user_id == str(user["id"]):
+        raise HTTPException(status_code=400, detail="Use account settings to change your own password.")
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
+    target = await get_user_by_id(conn, target_user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if user.get("role") == "admin":
+        if target.get("role") in ("admin", "superadmin"):
+            raise HTTPException(status_code=403,
+                detail="You cannot reset the password of an admin or superadmin.")
+        if not await is_member_of_team_any(conn, str(user["id"]), target_user_id):
+            raise HTTPException(status_code=403,
+                detail="You can only reset passwords for users in your own team.")
+    await update_user_password(conn, target_user_id, hash_password(req.new_password))
+    return {"status": "ok", "message": f"Password reset for {target['email']}."}
 
 
 @app.post("/admin/invite", status_code=201)
 async def admin_invite_user(
     req: AdminInviteRequest,
-    user=Depends(require_role("superadmin")),
+    user=Depends(require_role("admin")),
     conn=Depends(get_conn),
 ):
     """
     Invite a new user by email. Sends a 72-hour invite link.
-    The invited user sets their own name, username, and password.
+    Superadmin: can invite any role. Admin: can only invite analyst or viewer,
+    and the invited user is automatically added to the admin's team on signup.
     """
     from auth.dependencies import ROLE_LEVEL
     from notifications.email_engine import send_invite_email, is_email_configured
 
+    caller_role = user.get("role")
+
     if req.role not in ROLE_LEVEL:
         raise HTTPException(status_code=422,
             detail=f"Invalid role. Must be one of: {list(ROLE_LEVEL.keys())}")
+
+    # Admins can only invite roles below themselves
+    if caller_role == "admin":
+        if req.role not in ("analyst", "viewer"):
+            raise HTTPException(status_code=403,
+                detail="Admins can only invite analysts or viewers.")
+        # Validate team membership for the admin
+        team_ids = await get_user_team_ids(conn, str(user["id"]))
+        if not team_ids:
+            raise HTTPException(status_code=403,
+                detail="You must belong to a team before inviting users.")
+        if req.team_id:
+            if req.team_id not in team_ids:
+                raise HTTPException(status_code=403,
+                    detail="You can only invite users to your own team.")
+        elif len(team_ids) > 1:
+            raise HTTPException(status_code=422,
+                detail="You belong to multiple teams — specify team_id.")
+
     if await get_user_by_email(conn, req.email):
         raise HTTPException(status_code=409, detail="Email already registered.")
 
@@ -1777,6 +1883,12 @@ async def accept_invite(req: AcceptInviteRequest, conn=Depends(get_conn)):
     new_user = await update_user_role(conn, str(new_user["id"]), row["role"])
     await mark_invite_used(conn, req.token)
 
+    # Auto-add the new user to the inviter's team(s) so they inherit proper data scope
+    if row.get("created_by"):
+        inviter_teams = await get_user_team_ids(conn, str(row["created_by"]))
+        for tid in inviter_teams:
+            await add_team_member(conn, tid, str(new_user["id"]), str(row["created_by"]))
+
     token_jwt = create_token(
         str(new_user["id"]),
         row["email"],
@@ -1790,16 +1902,24 @@ async def accept_invite(req: AcceptInviteRequest, conn=Depends(get_conn)):
 async def patch_user(
     target_user_id: str,
     req: PatchUserRequest,
-    user=Depends(require_role("superadmin")),
+    user=Depends(require_role("admin")),
     conn=Depends(get_conn),
 ):
-    """Update is_active and/or valid_until for a user."""
+    """Update is_active and/or valid_until for a user. Admin: only team members (analyst/viewer)."""
     if target_user_id == str(user["id"]):
         raise HTTPException(status_code=400, detail="You cannot modify your own account status.")
 
     target = await get_user_by_id(conn, target_user_id)
     if not target:
         raise HTTPException(status_code=404, detail="User not found.")
+
+    if user.get("role") == "admin":
+        if target.get("role") in ("admin", "superadmin"):
+            raise HTTPException(status_code=403,
+                detail="You cannot modify an admin or superadmin account.")
+        if not await is_member_of_team_any(conn, str(user["id"]), target_user_id):
+            raise HTTPException(status_code=403,
+                detail="You can only modify users in your own team.")
 
     is_active = req.is_active if req.is_active is not None else target["is_active"]
 
@@ -1887,22 +2007,40 @@ async def assign_user_role(
     target_user_id: str,
     req: UpdateRoleRequest,
     request: Request,
-    user=Depends(require_role("superadmin")),
+    user=Depends(require_role("admin")),
     conn=Depends(get_conn),
 ):
-    """Assign a role to a user. Only superadmins can do this."""
+    """
+    Assign a role to a user.
+    Superadmin: can assign any role to anyone.
+    Admin: can only assign analyst/viewer, and only to users in their own team.
+    """
     from auth.dependencies import ROLE_LEVEL
     valid_roles = list(ROLE_LEVEL.keys())
+    caller_role = user.get("role")
+
     if req.role not in valid_roles:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid role. Must be one of: {valid_roles}",
-        )
-    # Prevent superadmin from demoting themselves
-    if target_user_id == str(user["id"]) and req.role != "superadmin":
-        raise HTTPException(
-            status_code=400, detail="You cannot change your own role."
-        )
+        raise HTTPException(status_code=422,
+            detail=f"Invalid role. Must be one of: {valid_roles}")
+
+    if target_user_id == str(user["id"]):
+        raise HTTPException(status_code=400, detail="You cannot change your own role.")
+
+    if caller_role == "admin":
+        # Admins can only set roles below themselves
+        if req.role not in ("analyst", "viewer"):
+            raise HTTPException(status_code=403,
+                detail="Admins can only assign analyst or viewer roles.")
+        # Target must be in the admin's team
+        if not await is_member_of_team_any(conn, str(user["id"]), target_user_id):
+            raise HTTPException(status_code=403,
+                detail="You can only manage users in your own team.")
+        # Cannot change another admin's or superadmin's role
+        target = await get_user_by_id(conn, target_user_id)
+        if target and target.get("role") in ("admin", "superadmin"):
+            raise HTTPException(status_code=403,
+                detail="You cannot change the role of an admin or superadmin.")
+
     updated = await update_user_role(conn, target_user_id, req.role)
     if not updated:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -1913,11 +2051,7 @@ async def assign_user_role(
                          ip_address=request.client.host if request.client else None)
     except Exception:
         pass
-    return {
-        "user_id": target_user_id,
-        "role":    req.role,
-        "message": f"Role updated to '{req.role}'.",
-    }
+    return {"user_id": target_user_id, "role": req.role, "message": f"Role updated to '{req.role}'."}
 
 # ── Move Account to Team ──────────────────────────────────────────────────────
 
@@ -2089,15 +2223,22 @@ async def remove_member_route(
 @app.get("/audit-log")
 async def get_audit_log_endpoint(
     limit: int = 100,
-    user=Depends(require_role("admin")),
+    user=Depends(require_role("analyst")),
     conn=Depends(get_conn),
 ):
     """
-    Returns audit log entries.
-    Admin and superadmin both see all users' actions.
-    Analysts/viewers are forbidden (require_role("admin") enforces this).
+    Superadmin: all logs. Admin: logs for their whole team. Analyst/viewer: own logs only.
     """
-    logs = await get_audit_log(conn, str(user["id"]), is_superadmin=(user.get("role") == "superadmin"), limit=limit)
+    role = user.get("role")
+    team_user_ids = None
+    if role == "admin":
+        # Get IDs of all users in the admin's teams
+        rows = await get_users_in_teams(conn, str(user["id"]))
+        team_user_ids = [str(u["id"]) for u in rows]
+    logs = await get_audit_log(conn, str(user["id"]),
+                               is_superadmin=(role == "superadmin"),
+                               team_user_ids=team_user_ids,
+                               limit=limit)
     # Serialize UUIDs and datetimes
     for entry in logs:
         for k, v in entry.items():

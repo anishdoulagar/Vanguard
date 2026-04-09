@@ -5,17 +5,17 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const SEV_COLOR = {
-  CRITICAL: "#e05555",
-  HIGH:     "#d97b3a",
-  MEDIUM:   "#c9a84c",
-  LOW:      "#4caf7d",
+  CRITICAL: "#ff3b30",
+  HIGH:     "#ff9500",
+  MEDIUM:   "#ffd60a",
+  LOW:      "#34c759",
 };
 
 const SEV_BG = {
-  CRITICAL: "rgba(224,85,85,0.12)",
-  HIGH:     "rgba(217,123,58,0.12)",
-  MEDIUM:   "rgba(201,168,76,0.12)",
-  LOW:      "rgba(76,175,125,0.12)",
+  CRITICAL: "rgba(255,59,48,0.10)",
+  HIGH:     "rgba(255,149,0,0.10)",
+  MEDIUM:   "rgba(255,214,10,0.10)",
+  LOW:      "rgba(52,199,89,0.08)",
 };
 
 const FRAMEWORKS    = ["ALL","CIS","NIST","PCI","HIPAA","SOC2","ISO27001","GDPR","CUSTOM"];
@@ -42,7 +42,7 @@ const EMPTY_RULE = {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function PoliciesPage({ role }) {
+export default function PoliciesPage({ token, role }) {
   const canEdit = role !== "viewer";
   const [rules,         setRules]         = useState([]);
   const [stats,         setStats]         = useState({});
@@ -69,8 +69,9 @@ export default function PoliciesPage({ role }) {
   const fetchPolicies = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const authHdr = token ? { Authorization: `Bearer ${token}` } : {};
     try {
-      const res  = await fetch(`${API}/policies`);
+      const res  = await fetch(`${API}/policies`, { headers: authHdr });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setRules(data.rules || []);
@@ -81,7 +82,7 @@ export default function PoliciesPage({ role }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => { fetchPolicies(); }, [fetchPolicies]);
 
@@ -126,7 +127,7 @@ export default function PoliciesPage({ role }) {
     setDeletingId(rule_id);
     try {
       const res = await fetch(`${API}/custom-rules/${rule_id}`, {
-        method: "DELETE",
+        method: "DELETE", headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
         fetchPolicies();
@@ -146,7 +147,7 @@ export default function PoliciesPage({ role }) {
     try {
       const res = await fetch(`${API}/custom-rules`, {
         method:  "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" },
         body:    JSON.stringify(newRule),
       });
       if (res.ok) {
@@ -207,8 +208,8 @@ export default function PoliciesPage({ role }) {
 
   const FrameworkTag = ({ fw }) => (
     <span style={{
-      background:    "#1e2026",
-      border:        "1px solid #2a2d35",
+      background:    "var(--surface)",
+      border:        "1px solid var(--border)",
       borderRadius:  "3px",
       padding:       "1px 5px",
       fontSize:      "10px",
@@ -228,7 +229,7 @@ export default function PoliciesPage({ role }) {
       height: "60vh", flexDirection: "column", gap: "16px",
     }}>
       <div style={{
-        width: "32px", height: "32px", border: "2px solid #2a2d35",
+        width: "32px", height: "32px", border: "2px solid var(--border)",
         borderTop: "2px solid var(--accent)", borderRadius: "50%",
         animation: "spin 0.8s linear infinite",
       }} />
@@ -314,7 +315,7 @@ export default function PoliciesPage({ role }) {
           { label:"CUSTOM",   value: stats.custom    || 0, color:"#7b8cde" },
         ].map(s => (
           <div key={s.label} style={{
-            background: "var(--card)", border: "1px solid #2a2d35",
+            background: "var(--card)", border: "1px solid var(--border)",
             borderRadius: "8px", padding: "14px 16px",
           }}>
             <div style={{
@@ -332,7 +333,7 @@ export default function PoliciesPage({ role }) {
       {/* ── Framework Coverage ── */}
       {Object.keys(fwCoverage).length > 0 && (
         <div style={{
-          background: "var(--card)", border: "1px solid #2a2d35",
+          background: "var(--card)", border: "1px solid var(--border)",
           borderRadius: "8px", padding: "16px 20px", marginBottom: "24px",
         }}>
           <div style={{ color: "var(--accent3)", fontSize: "11px",
@@ -347,7 +348,7 @@ export default function PoliciesPage({ role }) {
               .map(([fw, count]) => (
                 <div key={fw} style={{
                   display: "flex", alignItems: "center", gap: "6px",
-                  background: "#1a1c21", border: "1px solid #2a2d35",
+                  background: "var(--surface)", border: "1px solid var(--border)",
                   borderRadius: "5px", padding: "5px 10px", cursor: "pointer",
                 }} onClick={() => setFwFilter(fwFilter === fw ? "ALL" : fw)}>
                   <span style={{
@@ -376,7 +377,7 @@ export default function PoliciesPage({ role }) {
           onChange={e => setSearch(e.target.value)}
           style={{
             flex: "1", minWidth: "220px",
-            background: "var(--card)", border: "1px solid #2a2d35",
+            background: "var(--card)", border: "1px solid var(--border)",
             borderRadius: "6px", padding: "8px 12px",
             color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: "13px",
             outline: "none",
@@ -385,7 +386,7 @@ export default function PoliciesPage({ role }) {
 
         {/* Cloud Toggle */}
         <div style={{ display:"flex", background:"var(--card)",
-                      border:"1px solid #2a2d35", borderRadius:"6px",
+                      border:"1px solid var(--border)", borderRadius:"6px",
                       overflow:"hidden" }}>
           {CLOUD_OPTIONS.map(c => (
             <button key={c} onClick={() => setCloudFilter(c)} style={{
@@ -405,7 +406,7 @@ export default function PoliciesPage({ role }) {
           value={fwFilter}
           onChange={e => setFwFilter(e.target.value)}
           style={{
-            background: "var(--card)", border: "1px solid #2a2d35",
+            background: "var(--card)", border: "1px solid var(--border)",
             borderRadius: "6px", padding: "8px 12px",
             color: "var(--accent)", fontFamily: "var(--font-ui)", fontSize: "12px",
             cursor: "pointer", outline: "none",
@@ -428,7 +429,7 @@ export default function PoliciesPage({ role }) {
             borderRadius: "5px", transition: "all 0.15s",
             background:   sevFilter === s ? (SEV_COLOR[s] || "var(--accent)") : "var(--card)",
             color:        sevFilter === s ? "#fff" : "var(--accent2)",
-            border: `1px solid ${sevFilter === s ? (SEV_COLOR[s] || "var(--accent)") : "#2a2d35"}`,
+            border: `1px solid ${sevFilter === s ? (SEV_COLOR[s] || "var(--accent)") : "var(--border)"}`,
           }}>{s}</button>
         ))}
 
@@ -437,7 +438,7 @@ export default function PoliciesPage({ role }) {
           fontSize: "11px", fontFamily: "var(--font-ui)", fontWeight: 600,
           letterSpacing: "0.06em", borderRadius: "5px",
           background: "transparent", color: "var(--accent3)",
-          border: "1px solid #2a2d35",
+          border: "1px solid var(--border)",
         }}>
           {allCollapsed ? "EXPAND ALL" : "COLLAPSE ALL"}
         </button>
@@ -470,7 +471,7 @@ export default function PoliciesPage({ role }) {
         return (
           <div key={key} style={{
             marginBottom: "10px",
-            border:       "1px solid #2a2d35",
+            border:       "1px solid var(--border)",
             borderRadius: "8px",
             overflow:     "hidden",
           }}>
@@ -526,8 +527,8 @@ export default function PoliciesPage({ role }) {
                     gap:         "14px",
                     alignItems:  "start",
                     padding:     "12px 16px",
-                    background:  i % 2 === 0 ? "var(--card)" : "rgba(17,18,20,0.6)",
-                    borderTop:   "1px solid #1e2026",
+                    background:  i % 2 === 0 ? "var(--card)" : "var(--surface)",
+                    borderTop:   "1px solid var(--border)",
                   }}>
                     {/* Rule ID */}
                     <div>
@@ -582,10 +583,10 @@ export default function PoliciesPage({ role }) {
                           disabled={deletingId === rule.rule_id}
                           style={{
                             background:   "transparent",
-                            border:       "1px solid #e05555",
+                            border:       "1px solid var(--red)",
                             borderRadius: "4px",
                             padding:      "4px 10px",
-                            color:        "#e05555",
+                            color:        "var(--red)",
                             fontSize:     "11px",
                             cursor:       deletingId === rule.rule_id ? "not-allowed" : "pointer",
                             fontFamily:   "var(--font-ui)",
@@ -597,7 +598,7 @@ export default function PoliciesPage({ role }) {
                       ) : (
                         <div style={{
                           width: "10px", height: "10px", borderRadius: "50%",
-                          background: "#2a2d35",
+                          background: "var(--border)",
                         }} />
                       )}
                     </div>
@@ -700,7 +701,7 @@ export default function PoliciesPage({ role }) {
 
             {/* Preview */}
             <div style={{
-              background: "#111214", border: "1px solid #2a2d35",
+              background: "var(--card)", border: "1px solid var(--border)",
               borderRadius: "6px", padding: "12px 14px", marginTop: "8px",
               marginBottom: "16px",
             }}>
@@ -731,8 +732,8 @@ export default function PoliciesPage({ role }) {
             {statusMsg && (
               <div style={{
                 padding: "8px 12px", borderRadius: "6px", marginBottom: "14px",
-                background: statusIsError ? "#2d1a1a" : "#1a2d1a",
-                color:      statusIsError ? "#e05555" : "#4caf7d",
+                background: statusIsError ? "rgba(224,85,85,0.08)" : "rgba(76,175,125,0.08)",
+                color:      statusIsError ? "var(--red)" : "var(--green)",
                 fontSize:   "12px", fontFamily: "var(--font-mono)",
               }}>
                 {statusMsg}
@@ -755,7 +756,7 @@ export default function PoliciesPage({ role }) {
               </button>
               <button onClick={handleModalClose} style={{
                 flex: 1, background: "transparent", color: "var(--accent2)",
-                border: "1px solid #2a2d35", borderRadius: "6px", padding: "10px",
+                border: "1px solid var(--border)", borderRadius: "6px", padding: "10px",
                 fontFamily: "var(--font-ui)", fontWeight: 600, fontSize: "13px",
                 cursor: "pointer",
               }}>
@@ -808,7 +809,7 @@ const inputStyle = {
   width:       "100%",
   boxSizing:   "border-box",
   background:  "var(--card)",
-  border:      "1px solid #2a2d35",
+  border:      "1px solid var(--border)",
   borderRadius:"6px",
   padding:     "8px 12px",
   color:       "var(--accent)",
@@ -820,7 +821,7 @@ const inputStyle = {
 const selectStyle = {
   width:       "100%",
   background:  "var(--card)",
-  border:      "1px solid #2a2d35",
+  border:      "1px solid var(--border)",
   borderRadius:"6px",
   padding:     "8px 10px",
   color:       "var(--accent)",

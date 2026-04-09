@@ -62,7 +62,7 @@ async def get_all_users(conn) -> list:
     rows = await conn.fetch(
         """
         SELECT u.id, u.email, u.name, u.username, u.is_admin, u.role,
-               u.is_active, u.valid_until, u.created_at,
+               u.is_active, u.valid_until, u.created_at, u.mfa_enabled,
                COUNT(DISTINCT ca.id) AS account_count,
                COUNT(DISTINCT sr.id) AS scan_count
         FROM users u
@@ -71,6 +71,26 @@ async def get_all_users(conn) -> list:
         GROUP BY u.id
         ORDER BY u.created_at DESC
         """
+    )
+    return [dict(r) for r in rows]
+
+
+async def get_users_in_teams(conn, admin_user_id: str) -> list:
+    """Returns all users who belong to any team the given user is also a member of."""
+    rows = await conn.fetch(
+        """
+        SELECT u.id, u.email, u.name, u.username, u.role,
+               u.is_active, u.valid_until, u.created_at, u.mfa_enabled
+        FROM users u
+        WHERE u.id IN (
+            SELECT DISTINCT user_id FROM team_members
+            WHERE team_id IN (
+                SELECT team_id FROM team_members WHERE user_id = $1
+            )
+        )
+        ORDER BY u.created_at DESC
+        """,
+        admin_user_id
     )
     return [dict(r) for r in rows]
 
@@ -708,11 +728,22 @@ async def log_action(
     )
 
 
-async def get_audit_log(conn, user_id: str, is_superadmin: bool = False, limit: int = 100) -> list:
+async def get_audit_log(conn, user_id: str, is_superadmin: bool = False,
+                        limit: int = 100, team_user_ids: list = None) -> list:
     if is_superadmin:
         rows = await conn.fetch(
             "SELECT * FROM audit_log ORDER BY created_at DESC LIMIT $1",
             limit,
+        )
+    elif team_user_ids:
+        # Admin: see logs for all users in their teams
+        rows = await conn.fetch(
+            """
+            SELECT * FROM audit_log
+            WHERE user_id = ANY($1::uuid[])
+            ORDER BY created_at DESC LIMIT $2
+            """,
+            [str(uid) for uid in team_user_ids], limit,
         )
     else:
         rows = await conn.fetch(

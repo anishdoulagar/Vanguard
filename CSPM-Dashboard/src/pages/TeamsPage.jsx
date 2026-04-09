@@ -33,10 +33,10 @@ const S = {
 
 function RoleBadge({ role }) {
   const colors = {
-    superadmin: { bg: "rgba(192,132,252,0.10)", border: "rgba(192,132,252,0.30)", color: "var(--magenta)" },
-    admin:      { bg: "rgba(245,166,35,0.10)",  border: "rgba(245,166,35,0.30)",  color: "var(--cyan)"    },
-    analyst:    { bg: "rgba(77,200,130,0.10)",   border: "rgba(77,200,130,0.30)",  color: "var(--green)"   },
-    viewer:     { bg: "rgba(122,107,82,0.15)",   border: "rgba(122,107,82,0.30)",  color: "var(--accent2)" },
+    superadmin: { bg: "rgba(191,90,242,0.10)",  border: "rgba(191,90,242,0.30)",  color: "var(--magenta)" },
+    admin:      { bg: "rgba(0,113,227,0.10)",    border: "rgba(0,113,227,0.30)",   color: "var(--cyan)"    },
+    analyst:    { bg: "rgba(52,199,89,0.10)",    border: "rgba(52,199,89,0.30)",   color: "var(--green)"   },
+    viewer:     { bg: "rgba(128,128,128,0.12)",  border: "rgba(128,128,128,0.25)", color: "var(--accent2)" },
   };
   const c = colors[role] || colors.viewer;
   return (
@@ -268,7 +268,7 @@ function TeamCard({ team, token, isSuperadmin, allUsers, onDeleted }) {
           {/* Team icon */}
           <div style={{
             width: 38, height: 38, borderRadius: "var(--radius)",
-            background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.15)",
+            background: "rgba(0,113,227,0.08)", border: "1px solid rgba(0,113,227,0.15)",
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -349,7 +349,7 @@ function TeamCard({ team, token, isSuperadmin, allUsers, onDeleted }) {
                     {/* Avatar */}
                     <div style={{
                       width: 28, height: 28, borderRadius: "50%",
-                      background: "rgba(245,166,35,0.15)",
+                      background: "rgba(0,113,227,0.15)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontWeight: 700, fontSize: 11, color: "var(--cyan)", flexShrink: 0,
                     }}>

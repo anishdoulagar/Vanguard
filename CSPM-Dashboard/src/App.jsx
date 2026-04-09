@@ -12,6 +12,7 @@ import AlertsPage    from "./pages/AlertsPage";
 import UsersPage     from "./pages/UsersPage";
 import AuditPage     from "./pages/AuditPage";
 import TeamsPage     from "./pages/TeamsPage";
+import TeamUsersPage from "./pages/TeamUsersPage";
 
 const IconDashboard = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -69,15 +70,6 @@ const IconUsers = () => (
   </svg>
 );
 
-const NAV_ITEMS = [
-  { id: "dashboard", label: "DASHBOARD",  Icon: IconDashboard },
-  { id: "accounts",  label: "ACCOUNTS",   Icon: IconAccounts  },
-  { id: "connect",   label: "QUICK SCAN", Icon: IconScan      },
-  { id: "history",   label: "HISTORY",    Icon: IconHistory   },
-  { id: "alerts",    label: "ALERTS",     Icon: IconBell      },
-  { id: "policies",  label: "POLICIES",   Icon: IconPolicies  },
-];
-
 const IconAudit = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -87,6 +79,16 @@ const IconAudit = () => (
     <polyline points="10 9 9 9 8 9" />
   </svg>
 );
+
+const NAV_ITEMS = [
+  { id: "dashboard", label: "DASHBOARD",  Icon: IconDashboard },
+  { id: "accounts",  label: "ACCOUNTS",   Icon: IconAccounts  },
+  { id: "connect",   label: "QUICK SCAN", Icon: IconScan,     minRole: "analyst" },
+  { id: "history",   label: "HISTORY",    Icon: IconHistory   },
+  { id: "alerts",    label: "ALERTS",     Icon: IconBell,     minRole: "analyst" },
+  { id: "policies",  label: "POLICIES",   Icon: IconPolicies  },
+  { id: "audit",     label: "AUDIT LOG",  Icon: IconAudit,    minRole: "analyst" },
+];
 
 const IconTeams = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -100,9 +102,9 @@ const IconTeams = () => (
 
 // Extra nav items only visible to admin+
 const ADMIN_NAV_ITEMS = [
-  { id: "teams", label: "TEAMS",     Icon: IconTeams,  minRole: "admin"      },
-  { id: "users", label: "USERS",     Icon: IconUsers,  minRole: "superadmin" },
-  { id: "audit", label: "AUDIT LOG", Icon: IconAudit,  minRole: "admin"      },
+  { id: "teams",      label: "TEAMS",      Icon: IconTeams,  minRole: "admin"      },
+  { id: "team-users", label: "MY TEAM",    Icon: IconUsers,  minRole: "admin"      },
+  { id: "users",      label: "USERS",      Icon: IconUsers,  minRole: "superadmin" },
 ];
 
 // ── Session persistence helpers ───────────────────────────────────────────────
@@ -171,6 +173,14 @@ export default function App() {
   const [scanPayload,    setScanPayload]    = useState(null);
   const [dashboardData,  setDashboardData]  = useState(null);  // persists across navigation
   const [showSecurity,   setShowSecurity]   = useState(false);
+  const [adminMenuOpen,  setAdminMenuOpen]  = useState(false);
+
+  useEffect(() => {
+    if (!adminMenuOpen) return;
+    const close = () => setAdminMenuOpen(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [adminMenuOpen]);
 
   const [savedCloud, setSavedCloud] = useState("aws");
   const [savedAws,   setSavedAws]   = useState({
@@ -249,6 +259,9 @@ export default function App() {
       case "teams":
         if (!hasRole("admin")) return <Denied />;
         return <TeamsPage token={token} user={user} />;
+      case "team-users":
+        if (!hasRole("admin")) return <Denied />;
+        return <TeamUsersPage token={token} currentUser={user} />;
       case "connect":
         if (!hasRole("analyst")) return <Denied />;
         return (
@@ -281,12 +294,12 @@ export default function App() {
         if (!hasRole("analyst")) return <Denied />;
         return <AlertsPage token={token} role={user.role} userEmail={user.email} />;
       case "policies":
-        return <PoliciesPage role={user.role} />;
+        return <PoliciesPage token={token} role={user.role} />;
       case "users":
         if (!hasRole("superadmin")) return <Denied />;
         return <UsersPage token={token} currentUser={user} />;
       case "audit":
-        if (!hasRole("admin")) return <Denied />;
+        if (!hasRole("analyst")) return <Denied />;
         return <AuditPage token={token} role={user.role} />;
       default:
         return null;
@@ -361,9 +374,9 @@ export default function App() {
       fontFamily: "var(--font-mono)", fontSize: 13, boxSizing: "border-box",
     };
     const btnPrimary = {
-      width: "100%", padding: "10px", background: "var(--cyan)", color: "#0e0c09",
-      border: "none", borderRadius: 6, fontFamily: "var(--font-ui)", fontWeight: 700,
-      fontSize: 13, cursor: "pointer", letterSpacing: "0.04em", marginTop: 4,
+      width: "100%", padding: "10px", background: "#0071e3", color: "#ffffff",
+      border: "none", borderRadius: 8, fontFamily: "var(--font-ui)", fontWeight: 400,
+      fontSize: 14, cursor: "pointer", letterSpacing: "-0.224px", marginTop: 4,
     };
     const btnGhost = {
       width: "100%", padding: "10px", background: "transparent", color: "var(--accent3)",
@@ -539,170 +552,222 @@ export default function App() {
     );
   }
 
+  const roleColors = {
+    viewer:     { bg:"rgba(16,185,129,0.10)", border:"rgba(16,185,129,0.3)", text:"var(--green)" },
+    analyst:    { bg:"rgba(79,143,247,0.10)", border:"rgba(79,143,247,0.3)", text:"var(--blue)" },
+    admin:      { bg:"var(--role-admin-bg)",  border:"var(--role-admin-border)", text:"var(--cyan)" },
+    superadmin: { bg:"var(--role-super-bg)",  border:"var(--role-super-border)", text:"var(--magenta)" },
+  };
+  const rc = roleColors[user.role] || roleColors.analyst;
+
+  const navBtnStyle = (active, _isAdmin) => ({
+    display:"flex", alignItems:"center", gap:"6px",
+    padding:"0 12px", height:"100%", border:"none",
+    background:"transparent",
+    color: active ? "var(--cyan)" : "var(--accent2)",
+    fontFamily:"var(--font-ui)", fontWeight: active ? 600 : 400,
+    fontSize:"12px", letterSpacing:"-0.12px",
+    cursor:"pointer",
+    borderBottom: active ? "2px solid var(--cyan)" : "2px solid transparent",
+    transition:"color 0.15s, border-color 0.15s",
+  });
+
+  const iconBtnStyle = {
+    display:"flex", alignItems:"center", gap:6,
+    padding:"6px 10px", border:"none", background:"transparent",
+    cursor:"pointer", fontFamily:"var(--font-ui)",
+    fontSize:"11px", letterSpacing:"0.06em",
+    color:"var(--accent3)", transition:"color 0.15s",
+    borderRadius:6,
+  };
+
   return (
-    <div style={{ display:"flex", minHeight:"100vh", background:"var(--bg)" }}>
+    <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh", background:"var(--bg)" }}>
       {showSecurity && <SecurityModal />}
 
-      {/* ── Sidebar ── */}
-      <nav style={{
-        width:"216px", flexShrink:0,
-        background:"var(--surface)", borderRight:"1px solid var(--sidebar-border)",
-        display:"flex", flexDirection:"column",
-        padding:"20px 0", position:"sticky", top:0, height:"100vh",
-      }}>
-        <div style={{ padding:"0 18px 18px" }}>
+      {/* ── Top navbar — Apple glass ── */}
+      <header style={{
+        height:"48px", flexShrink:0,
+        background:"rgba(0,0,0,0.8)",
+        backdropFilter:"saturate(180%) blur(20px)",
+        WebkitBackdropFilter:"saturate(180%) blur(20px)",
+        borderBottom:"1px solid rgba(255,255,255,0.06)",
+        display:"flex", alignItems:"stretch",
+        padding:"0 24px",
+        position:"sticky", top:0, zIndex:50,
+      }} onClick={() => adminMenuOpen && setAdminMenuOpen(false)}>
+
+        {/* Logo */}
+        <div style={{
+          display:"flex", alignItems:"center", gap:9,
+          paddingRight:20, marginRight:4,
+          borderRight:"1px solid var(--border)",
+          flexShrink:0,
+        }}>
           <div style={{
-            fontFamily:"var(--font-display)", fontWeight:800,
-            fontSize:"15px", letterSpacing:"0.10em", lineHeight:1,
-            color:"var(--cyan)",
-          }}>VANGUARD</div>
-          <div style={{
-            fontFamily:"var(--font-mono)", fontSize:"9px",
-            color:"var(--accent3)", marginTop:"5px",
-            letterSpacing:"0.12em",
-          }}>CSPM Platform</div>
+            width:26, height:26, borderRadius:6, flexShrink:0,
+            background:"rgba(0,113,227,0.12)", border:"1.5px solid rgba(0,113,227,0.3)",
+            display:"flex", alignItems:"center", justifyContent:"center", color:"var(--cyan)",
+          }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <span style={{
+            fontFamily:"var(--font-display)", fontWeight:900,
+            fontSize:"13px", letterSpacing:"0.12em", color:"var(--cyan)",
+          }}>VANGUARD</span>
         </div>
 
-        <div style={{ height:"1px", background:"var(--nav-divider)", marginBottom:"6px" }} />
+        {/* Main nav items */}
+        <nav style={{ display:"flex", alignItems:"stretch", gap:0 }}>
+          {NAV_ITEMS.filter(item =>
+            !item.minRole || hasRole(item.minRole)
+          ).map(({ id, label, Icon }) => {
+            const active = activePage === id;
+            return (
+              <button key={id} onClick={() => setPage(id)} style={navBtnStyle(active, false)}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.color = "var(--accent)"; }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.color = "var(--accent2)"; }}>
+                <Icon />{label}
+              </button>
+            );
+          })}
+        </nav>
 
-        {NAV_ITEMS.filter(item =>
-          !(user.role === "viewer" && item.id === "connect")
-        ).map(({ id, label, Icon }) => {
-          const active = activePage === id;
-          return (
-            <button key={id} onClick={() => setPage(id)}
-              className={`nav-btn${active ? " active" : ""}`}
-              style={{
-                display:"flex", alignItems:"center", gap:"9px",
-                padding:"8px 18px", border:"none",
-                background: active ? "var(--nav-active-bg)" : "transparent",
-                color:      active ? "var(--cyan)" : "var(--accent2)",
-                fontFamily:"var(--font-ui)", fontWeight: active ? 600 : 400,
-                fontSize:"11px", letterSpacing:"0.06em",
-                cursor:"pointer", textAlign:"left", width:"100%",
-                borderLeft: "none",
-              }}>
-              <Icon />{label}
-            </button>
-          );
-        })}
-
-        {/* Admin section */}
+        {/* Admin dropdown */}
         {(user.role === "superadmin" || user.role === "admin") && (
           <>
-            <div style={{
-              margin:"12px 20px 4px",
-              display:"flex", alignItems:"center", gap:6,
-            }}>
-              <div style={{ flex:1, height:"1px", background:"var(--nav-divider)" }} />
-              <span style={{
-                fontFamily:"var(--font-ui)", fontSize:"9px", fontWeight:700,
-                color:"var(--magenta)", letterSpacing:"0.12em",
-              }}>ADMIN</span>
-              <div style={{ flex:1, height:"1px", background:"var(--nav-divider)" }} />
+            <div style={{ width:1, background:"var(--border)", margin:"12px 8px", flexShrink:0 }} />
+            <div style={{ position:"relative", display:"flex", alignItems:"stretch" }}>
+              <button
+                onClick={e => { e.stopPropagation(); setAdminMenuOpen(o => !o); }}
+                style={{
+                  ...navBtnStyle(
+                    ADMIN_NAV_ITEMS.some(i => i.id === activePage),
+                    true
+                  ),
+                  gap:5, paddingRight:10,
+                }}
+                onMouseEnter={e => { if (!ADMIN_NAV_ITEMS.some(i=>i.id===activePage)) e.currentTarget.style.color="var(--accent)"; }}
+                onMouseLeave={e => { if (!ADMIN_NAV_ITEMS.some(i=>i.id===activePage)) e.currentTarget.style.color="var(--accent2)"; }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                ADMIN
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                     style={{ transform: adminMenuOpen ? "rotate(180deg)" : "none", transition:"transform 0.2s" }}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+
+              {/* Dropdown */}
+              {adminMenuOpen && (
+                <div style={{
+                  position:"absolute", top:"calc(100% + 4px)", left:0,
+                  background:"var(--card)", border:"1px solid var(--border)",
+                  borderRadius:10, overflow:"hidden",
+                  boxShadow:"0 12px 40px rgba(0,0,0,0.4)",
+                  minWidth:180, zIndex:100,
+                }} onClick={e => e.stopPropagation()}>
+                  {ADMIN_NAV_ITEMS.filter(item =>
+                    item.minRole === "admin" || user.role === "superadmin"
+                  ).map(({ id, label, Icon }) => {
+                    const active = activePage === id;
+                    return (
+                      <button key={id} onClick={() => { setPage(id); setAdminMenuOpen(false); }}
+                        style={{
+                          display:"flex", alignItems:"center", gap:9,
+                          width:"100%", padding:"10px 16px", border:"none",
+                          background: active ? "rgba(0,113,227,0.08)" : "transparent",
+                          color: active ? "var(--cyan)" : "var(--accent2)",
+                          fontFamily:"var(--font-ui)", fontWeight: active ? 600 : 400,
+                          fontSize:"12px", letterSpacing:"-0.12px", cursor:"pointer",
+                          textAlign:"left", transition:"background 0.12s, color 0.12s",
+                          borderLeft: active ? "2px solid var(--cyan)" : "2px solid transparent",
+                        }}
+                        onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "var(--surface)"; e.currentTarget.style.color = "var(--accent)"; }}}
+                        onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--accent2)"; }}}>
+                        <Icon />{label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            {ADMIN_NAV_ITEMS.filter(item =>
-              item.minRole === "admin" || user.role === "superadmin"
-            ).map(({ id, label, Icon }) => {
-              const active = activePage === id;
-              return (
-                <button key={id} onClick={() => setPage(id)} style={{
-                  display:"flex", alignItems:"center", gap:"9px",
-                  padding:"8px 18px", border:"none",
-                  background: active ? "var(--admin-active-bg)" : "transparent",
-                  color:      active ? "var(--magenta)" : "var(--accent2)",
-                  fontFamily:"var(--font-ui)", fontWeight: active ? 600 : 400,
-                  fontSize:"11px", letterSpacing:"0.06em",
-                  cursor:"pointer", textAlign:"left", width:"100%",
-                  borderLeft: "none",
-                  transition:"background 0.15s, color 0.15s",
-                }}>
-                  <Icon />{label}
-                </button>
-              );
-            })}
           </>
         )}
 
-        {/* User + Logout */}
-        <div style={{ marginTop:"auto" }}>
-          <div style={{ height:"1px", background:"var(--nav-divider)", marginBottom:"12px" }} />
-          <div style={{ padding:"0 20px 8px" }}>
-            <div style={{ color:"var(--accent)", fontSize:"12px",
-                          fontFamily:"var(--font-ui)", fontWeight:600,
-                          overflow:"hidden", textOverflow:"ellipsis",
-                          whiteSpace:"nowrap" }}>{user.name}</div>
-            <div style={{ color:"var(--accent3)", fontSize:"11px",
-                          fontFamily:"var(--font-mono)", marginTop:"2px",
-                          overflow:"hidden", textOverflow:"ellipsis",
-                          whiteSpace:"nowrap" }}>{user.email}</div>
-            {user.role && (() => {
-              const roleColors = {
-                viewer:     { bg:"rgba(16,185,129,0.10)", border:"rgba(16,185,129,0.3)", text:"var(--green)" },
-                analyst:    { bg:"rgba(79,143,247,0.10)", border:"rgba(79,143,247,0.3)", text:"var(--blue)" },
-                admin:      { bg:"var(--role-admin-bg)",  border:"var(--role-admin-border)", text:"var(--cyan)" },
-                superadmin: { bg:"var(--role-super-bg)",  border:"var(--role-super-border)", text:"var(--magenta)" },
-              };
-              const c = roleColors[user.role] || roleColors.analyst;
-              return (
-                <div style={{ marginTop:"4px", display:"inline-block",
-                  background:c.bg, border:`1px solid ${c.border}`,
-                  color:c.text, fontSize:"9px", fontWeight:700,
-                  padding:"1px 6px", borderRadius:"3px",
-                  fontFamily:"var(--font-ui)", letterSpacing:"0.08em",
-                  textTransform:"uppercase" }}>
-                  {user.role}
-                </div>
-              );
-            })()}
-          </div>
-          <button onClick={() => setShowSecurity(true)} style={{
-            width:"100%", padding:"10px 20px",
-            background:"transparent",
-            border:"none", borderTop:"1px solid var(--bottom-divider)",
-            color: user?.mfa_enabled ? "var(--green)" : "var(--accent3)",
-            cursor:"pointer", fontFamily:"var(--font-ui)", fontSize:"12px",
-            textAlign:"left", letterSpacing:"0.08em", transition:"color 0.15s",
-            display:"flex", alignItems:"center", gap:8,
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = "var(--cyan)"}
-          onMouseLeave={e => e.currentTarget.style.color = user?.mfa_enabled ? "var(--green)" : "var(--accent3)"}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        {/* Right side controls */}
+        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:2, flexShrink:0 }}>
+
+          {/* Theme toggle */}
+          <button
+            onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+            style={{ ...iconBtnStyle, padding:"6px 8px" }}
+            onMouseEnter={e => e.currentTarget.style.color = "var(--cyan)"}
+            onMouseLeave={e => e.currentTarget.style.color = "var(--accent3)"}>
+            <span style={{ fontSize:14 }}>{theme === "dark" ? "☀" : "☾"}</span>
+          </button>
+
+          {/* Security / MFA */}
+          <button onClick={() => setShowSecurity(true)}
+            title={user?.mfa_enabled ? "MFA enabled" : "Set up security"}
+            style={{
+              ...iconBtnStyle, padding:"6px 8px",
+              color: user?.mfa_enabled ? "var(--green)" : "var(--accent3)",
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = "var(--cyan)"}
+            onMouseLeave={e => e.currentTarget.style.color = user?.mfa_enabled ? "var(--green)" : "var(--accent3)"}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="5" y="11" width="14" height="10" rx="2"/>
               <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
             </svg>
-            {user?.mfa_enabled ? "MFA ON" : "SECURITY"}
           </button>
-          <button
-            onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
-            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            style={{
-              width:"100%", padding:"10px 20px",
-              background:"transparent",
-              border:"none", borderTop:"1px solid var(--bottom-divider)",
-              color:"var(--accent3)", cursor:"pointer",
-              fontFamily:"var(--font-ui)", fontSize:"12px",
-              textAlign:"left", letterSpacing:"0.08em", transition:"color 0.15s",
-              display:"flex", alignItems:"center", gap:8,
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = "var(--cyan)"}
+
+          <div style={{ width:1, background:"var(--border)", height:18, margin:"0 8px", flexShrink:0 }} />
+
+          {/* User info */}
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{
+              width:30, height:30, borderRadius:"50%", flexShrink:0,
+              background:rc.bg, border:`1px solid ${rc.border}`,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontFamily:"var(--font-ui)", fontSize:11, fontWeight:700,
+              color:rc.text,
+            }}>
+              {(user.name || user.username || "?")[0].toUpperCase()}
+            </div>
+            <div>
+              <div style={{
+                fontFamily:"var(--font-ui)", fontWeight:600, fontSize:"12px",
+                color:"var(--accent)", lineHeight:1.2,
+                maxWidth:110, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+              }}>{user.name}</div>
+              <div style={{
+                fontFamily:"var(--font-ui)", fontSize:"8px", fontWeight:700,
+                color:rc.text, letterSpacing:"0.08em", textTransform:"uppercase",
+              }}>{user.role}</div>
+            </div>
+          </div>
+
+          <div style={{ width:1, background:"var(--border)", height:18, margin:"0 8px", flexShrink:0 }} />
+
+          {/* Sign out */}
+          <button onClick={handleLogout}
+            title="Sign out"
+            style={{ ...iconBtnStyle, padding:"6px 8px" }}
+            onMouseEnter={e => e.currentTarget.style.color = "var(--red)"}
             onMouseLeave={e => e.currentTarget.style.color = "var(--accent3)"}>
-            {theme === "dark" ? "☀" : "☾"} {theme === "dark" ? "LIGHT MODE" : "DARK MODE"}
-          </button>
-          <button onClick={handleLogout} className="neon-btn" style={{
-            width:"100%", padding:"10px 20px",
-            background:"transparent",
-            border:"none", borderTop:"1px solid var(--bottom-divider)",
-            color:"var(--accent3)", cursor:"pointer",
-            fontFamily:"var(--font-ui)", fontSize:"12px",
-            textAlign:"left", letterSpacing:"0.08em", transition:"color 0.15s",
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = "var(--red)"}
-          onMouseLeave={e => e.currentTarget.style.color = "var(--accent3)"}>
-            SIGN OUT
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
           </button>
         </div>
-      </nav>
+      </header>
 
       <main style={{ flex:1, overflowY:"auto", minWidth:0, position:"relative" }}>
         {/* Dashboard is always mounted — never unmounts so it never loses state */}

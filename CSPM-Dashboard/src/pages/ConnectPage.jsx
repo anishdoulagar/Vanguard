@@ -242,7 +242,7 @@ export default function ConnectPage({
             <button onClick={handleScan} disabled={scanning} className="neon-btn" style={{
               flex: 2, padding: "10px",
               background: scanning ? "transparent" : "var(--cyan)",
-              color: scanning ? "var(--accent3)" : "#0e0c09",
+              color: scanning ? "var(--accent3)" : "#ffffff",
               border: scanning ? "1px solid var(--border)" : "none",
               borderRadius: "6px",
               fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "13px",

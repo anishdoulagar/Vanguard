@@ -4,60 +4,59 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VANGUARD // CSPM</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
       :root {
-        /* ── Surfaces — Ember ── */
-        --bg:       #0e0c09;
-        --surface:  #131009;
-        --card:     #18140c;
-        --border:   #2a2318;
+        /* ── Surfaces — Apple Black ── */
+        --bg:       #000000;
+        --surface:  #111111;
+        --card:     #1c1c1e;
+        --border:   rgba(255,255,255,0.08);
 
         /* ── Text ── */
-        --accent:   #d4c0a0;
-        --accent2:  #7a6b52;
-        --accent3:  #4a3f2a;
+        --accent:   #ffffff;
+        --accent2:  rgba(255,255,255,0.6);
+        --accent3:  rgba(255,255,255,0.3);
 
-        /* ── Colors ── */
-        --cyan:     #f5a623;
-        --magenta:  #c084fc;
-        --green:    #4dc882;
-        --yellow:   #f5a623;
-        --red:      #e05555;
-        --orange:   #f5782a;
-        --blue:     #60a5fa;
-        --purple:   #c084fc;
+        /* ── Single accent — Apple Blue ── */
+        --cyan:     #0071e3;
 
-        /* ── Glows — very subtle ── */
-        --glow-cyan:    0 4px 16px rgba(245,166,35,0.18);
-        --glow-magenta: 0 4px 16px rgba(192,132,252,0.15);
-        --glow-green:   0 4px 16px rgba(77,200,130,0.15);
-        --glow-red:     0 4px 16px rgba(224,85,85,0.15);
+        /* ── Severity / data colors — Apple system palette ── */
+        --green:    #34c759;
+        --red:      #ff3b30;
+        --orange:   #ff9500;
+        --yellow:   #ffd60a;
+        --blue:     #0071e3;
+        --magenta:  #bf5af2;
+        --purple:   #bf5af2;
 
-        /* ── Fonts ── */
-        --font-display: 'Inter', system-ui, -apple-system, sans-serif;
-        --font-ui:      'Inter', system-ui, -apple-system, sans-serif;
-        --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+        /* ── Shadows ── */
+        --glow-cyan:    rgba(0,113,227,0.22) 3px 5px 30px 0px;
+        --glow-magenta: 0 4px 16px rgba(191,90,242,0.12);
+        --glow-green:   0 4px 16px rgba(52,199,89,0.15);
+        --glow-red:     0 4px 16px rgba(255,59,48,0.15);
+
+        /* ── Fonts — SF Pro via system ── */
+        --font-display: -apple-system, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        --font-ui:      -apple-system, "SF Pro Text",    "Helvetica Neue", Helvetica, Arial, sans-serif;
+        --font-mono:    "SF Mono", "JetBrains Mono", "Fira Code", monospace;
 
         /* ── Component tokens ── */
-        --sidebar-border:    rgba(255,200,80,0.07);
-        --nav-divider:       rgba(255,200,80,0.05);
-        --nav-active-bg:     rgba(245,166,35,0.10);
+        --sidebar-border:    rgba(255,255,255,0.06);
+        --nav-divider:       rgba(255,255,255,0.05);
+        --nav-active-bg:     rgba(0,113,227,0.12);
         --nav-active-glow:   transparent;
-        --admin-active-bg:   rgba(192,132,252,0.10);
+        --admin-active-bg:   rgba(0,113,227,0.12);
         --admin-active-glow: transparent;
-        --bottom-divider:    rgba(255,200,80,0.07);
-        --role-admin-bg:     rgba(245,166,35,0.10);
-        --role-admin-border: rgba(245,166,35,0.30);
-        --role-super-bg:     rgba(192,132,252,0.10);
-        --role-super-border: rgba(192,132,252,0.30);
+        --bottom-divider:    rgba(255,255,255,0.06);
+        --role-admin-bg:     rgba(0,113,227,0.10);
+        --role-admin-border: rgba(0,113,227,0.30);
+        --role-super-bg:     rgba(191,90,242,0.10);
+        --role-super-border: rgba(191,90,242,0.30);
 
         /* ── Radius ── */
-        --radius:   8px;
+        --radius:    8px;
         --radius-lg: 12px;
       }
 
@@ -86,7 +85,7 @@
       input:focus, select:focus, textarea:focus {
         outline: none !important;
         border-color: var(--cyan) !important;
-        box-shadow: 0 0 0 3px rgba(245,166,35,0.12) !important;
+        box-shadow: 0 0 0 3px rgba(0,113,227,0.25) !important;
       }
 
       /* ── Animations ── */
@@ -121,6 +120,12 @@
         0%, 100% { opacity: 1; }
         50% { opacity: 0.5; }
       }
+      @keyframes scanLine {
+        0%   { top: -2px;   opacity: 0; }
+        5%   { opacity: 1; }
+        95%  { opacity: 1; }
+        100% { top: 100vh;  opacity: 0; }
+      }
 
       /* Reduced motion: keep fades, skip transforms */
       @media (prefers-reduced-motion: reduce) {
@@ -142,50 +147,49 @@
         }
       }
 
-      /* ── Button styles ── */
+      /* ── Button styles — Apple ── */
       .btn-primary {
         position: relative;
-        background: var(--cyan);
-        color: #0e0c09;
+        background: #0071e3;
+        color: #ffffff;
         border: none;
-        border-radius: var(--radius);
-        font-weight: 600;
+        border-radius: 8px;
+        padding: 8px 15px;
+        font-weight: 400;
+        letter-spacing: -0.374px;
         cursor: pointer;
-        transition: all 0.15s;
+        transition: background 0.15s;
       }
-      .btn-primary:hover {
-        filter: brightness(1.1);
-        box-shadow: var(--glow-cyan);
-      }
-      .btn-primary:active { transform: scale(0.98); }
+      .btn-primary:hover  { background: #0077ed; }
+      .btn-primary:active { background: #006edb; transform: scale(0.98); }
 
       .btn-ghost {
         position: relative;
         background: transparent;
         border: 1px solid var(--border);
         color: var(--accent2);
-        border-radius: var(--radius);
-        font-weight: 600;
+        border-radius: 8px;
+        font-weight: 400;
         cursor: pointer;
         transition: all 0.15s;
       }
       .btn-ghost:hover {
-        border-color: var(--cyan);
-        color: var(--cyan);
-        background: rgba(245,166,35,0.05);
+        border-color: #0071e3;
+        color: #0071e3;
+        background: rgba(0,113,227,0.05);
       }
 
       .btn-danger {
         background: transparent;
-        border: 1px solid rgba(239,68,68,0.3);
+        border: 1px solid rgba(255,59,48,0.3);
         color: var(--red);
-        border-radius: var(--radius);
-        font-weight: 600;
+        border-radius: 8px;
+        font-weight: 400;
         cursor: pointer;
         transition: all 0.15s;
       }
       .btn-danger:hover {
-        background: rgba(239,68,68,0.08);
+        background: rgba(255,59,48,0.08);
         border-color: var(--red);
       }
 
@@ -198,7 +202,7 @@
       .neon-btn:hover {
         border-color: var(--cyan) !important;
         color: var(--cyan) !important;
-        box-shadow: var(--glow-cyan);
+        box-shadow: rgba(0,113,227,0.22) 3px 5px 30px 0px;
       }
 
       /* Legacy compat: neon-card maps to clean card */
@@ -241,44 +245,50 @@
         background: var(--green);
       }
 
-      /* ═══ Light mode ═══ */
+      /* ═══ Light mode — Apple ═══ */
       [data-theme="light"] {
-        --bg:       #f0f2f7;
-        --surface:  #e4e7ef;
+        --bg:       #f5f5f7;
+        --surface:  #f5f5f7;
         --card:     #ffffff;
-        --border:   #d0d5e0;
+        --border:   rgba(0,0,0,0.08);
 
-        --accent:   #0f172a;
-        --accent2:  #334155;
-        --accent3:  #64748b;
+        --accent:   #1d1d1f;
+        --accent2:  rgba(0,0,0,0.6);
+        --accent3:  rgba(0,0,0,0.48);
 
-        --cyan:     #2563eb;
-        --green:    #059669;
-        --red:      #dc2626;
-        --orange:   #d97706;
-        --blue:     #2563eb;
-        --purple:   #7c3aed;
-        --magenta:  #be185d;
-        --yellow:   #ca8a04;
+        --cyan:     #0071e3;
+        --green:    #1c7c4a;
+        --red:      #d70015;
+        --orange:   #c05c00;
+        --yellow:   #a67c00;
+        --blue:     #0071e3;
+        --magenta:  #8e3ac5;
+        --purple:   #8e3ac5;
 
-        --glow-cyan:    0 4px 16px rgba(37,99,235,0.12);
-        --glow-magenta: 0 4px 16px rgba(190,24,93,0.12);
-        --glow-green:   0 4px 16px rgba(5,150,105,0.12);
-        --glow-red:     0 4px 16px rgba(220,38,38,0.12);
+        --glow-cyan:    rgba(0,113,227,0.12) 3px 5px 30px 0px;
+        --glow-magenta: 0 4px 16px rgba(142,58,197,0.12);
+        --glow-green:   0 4px 16px rgba(28,124,74,0.12);
+        --glow-red:     0 4px 16px rgba(215,0,21,0.12);
 
         --sidebar-border:    rgba(0,0,0,0.08);
         --nav-divider:       rgba(0,0,0,0.06);
-        --nav-active-bg:     rgba(37,99,235,0.08);
-        --admin-active-bg:   rgba(190,24,93,0.08);
+        --nav-active-bg:     rgba(0,113,227,0.08);
+        --admin-active-bg:   rgba(0,113,227,0.08);
         --bottom-divider:    rgba(0,0,0,0.06);
-        --role-admin-bg:     rgba(37,99,235,0.08);
-        --role-admin-border: rgba(37,99,235,0.25);
-        --role-super-bg:     rgba(190,24,93,0.08);
-        --role-super-border: rgba(190,24,93,0.25);
+        --role-admin-bg:     rgba(0,113,227,0.08);
+        --role-admin-border: rgba(0,113,227,0.25);
+        --role-super-bg:     rgba(142,58,197,0.08);
+        --role-super-border: rgba(142,58,197,0.25);
       }
 
       [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
       [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+
+      /* ── Light mode glass navbar ── */
+      [data-theme="light"] header {
+        background: rgba(245,245,247,0.85) !important;
+        border-bottom: 1px solid rgba(0,0,0,0.08) !important;
+      }
     </style>
   </head>
   <body>
