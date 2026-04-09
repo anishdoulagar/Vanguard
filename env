@@ -1,9 +1,0 @@
-POSTGRES_DB=cspm
-POSTGRES_USER=cspm_user
-POSTGRES_PASSWORD=CspmSecure2025
-
-CSPM_ENCRYPT_KEY=REPLACE_RUN_generate_keys_py
-JWT_SECRET=REPLACE_RUN_generate_keys_py
-
-JWT_EXPIRE_HOURS=24
-VITE_API_URL=http://localhost:8000

@@ -80,7 +80,7 @@ VIEWER  ────────────────────────
 ```bash
 git clone https://github.com/anishdoulagar/Vanguard.git
 cd Vanguard
-./setup.sh
+bash scripts/setup.sh
 ```
 
 Dashboard is live at `http://localhost:5173`. The first account you create becomes superadmin.
@@ -125,7 +125,7 @@ cd Vanguard
 **4. Configure environment**
 ```bash
 cp .env.example .env
-python3 generate_keys.py
+python3 scripts/generate_keys.py
 ```
 Open `.env` and add:
 ```env
@@ -174,7 +174,7 @@ newgrp docker
 ```bash
 git clone https://github.com/anishdoulagar/Vanguard.git
 cd Vanguard
-./setup.sh
+bash scripts/setup.sh
 ```
 
 Dashboard is live at `http://localhost:5173`.
@@ -222,7 +222,7 @@ sudo -u postgres psql -c "CREATE DATABASE cspm OWNER cspm_user;"
 **4. Configure environment**
 ```bash
 cp .env.example .env
-python3 generate_keys.py
+python3 scripts/generate_keys.py
 ```
 Open `.env` and add:
 ```env
@@ -262,7 +262,7 @@ Dashboard is live at `http://localhost:5173`.
 ```powershell
 git clone https://github.com/anishdoulagar/Vanguard.git
 cd Vanguard
-python generate_keys.py
+python scripts\generate_keys.py
 copy .env.example .env
 docker compose up --build -d
 ```
@@ -311,7 +311,7 @@ cd Vanguard
 **4. Configure environment**
 ```powershell
 copy .env.example .env
-python generate_keys.py
+python scripts\generate_keys.py
 ```
 Open `.env` in Notepad and add:
 ```env
@@ -396,10 +396,20 @@ Vanguard/
 ├── CSPM-Dashboard/             # Frontend
 │   └── src/pages/              # Dashboard · History · Alerts · Policies · Admin
 │
+├── demo_infra/                 # One-command demo environment
+│   ├── demo_manager.py         # deploy / destroy / status CLI
+│   ├── .env.example            # Credential template (copy → .env)
+│   └── README.md               # Demo infra instructions
+│
+├── scripts/
+│   ├── setup.sh                # One-command setup (Mac/Linux)
+│   └── generate_keys.py        # Secret key generator
+│
+├── docs/
+│   └── generate_ppt.py         # Presentation generator
+│
 ├── docker-compose.yml          # Orchestration
-├── .env.example                # Environment template
-├── generate_keys.py            # Secret key generator
-└── setup.sh                    # One-command setup (Mac/Linux)
+└── .env.example                # Environment template
 ```
 
 ---
