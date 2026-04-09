@@ -340,6 +340,30 @@ Dashboard is live at `http://localhost:5173`.
 
 ---
 
+## Demo Infrastructure
+
+Want to test Vanguard against real (intentionally misconfigured) cloud resources? The `demo_infra/` directory has a one-command deploy/destroy CLI.
+
+```bash
+# 1. Copy the credential template and fill in your values
+cp demo_infra/.env.example demo_infra/.env
+
+# 2. Deploy intentionally vulnerable resources
+python3 demo_infra/demo_manager.py deploy azure   # ~5 min · ~$0.05/hr
+python3 demo_infra/demo_manager.py deploy aws     # ~3 min · ~$0.01/hr
+
+# 3. Check what's running
+python3 demo_infra/demo_manager.py status
+
+# 4. Destroy when done (stops billing)
+python3 demo_infra/demo_manager.py destroy azure
+python3 demo_infra/demo_manager.py destroy aws
+```
+
+See [`demo_infra/README.md`](demo_infra/README.md) for credential setup instructions and the full list of expected findings.
+
+---
+
 ## Configuration
 
 ### Cloud Credentials
