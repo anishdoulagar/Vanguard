@@ -5,17 +5,17 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const SEV_COLOR = {
-  CRITICAL: "#ff3b30",
-  HIGH:     "#ff9500",
-  MEDIUM:   "#ffd60a",
-  LOW:      "#34c759",
+  CRITICAL: "#dc2626",
+  HIGH:     "#ea580c",
+  MEDIUM:   "#ca8a04",
+  LOW:      "#16a34a",
 };
 
 const SEV_BG = {
-  CRITICAL: "rgba(255,59,48,0.10)",
-  HIGH:     "rgba(255,149,0,0.10)",
-  MEDIUM:   "rgba(255,214,10,0.10)",
-  LOW:      "rgba(52,199,89,0.08)",
+  CRITICAL: "rgba(220,38,38,0.08)",
+  HIGH:     "rgba(234,88,12,0.08)",
+  MEDIUM:   "rgba(202,138,4,0.08)",
+  LOW:      "rgba(22,163,74,0.07)",
 };
 
 const FRAMEWORKS    = ["ALL","CIS","NIST","PCI","HIPAA","SOC2","ISO27001","GDPR","CUSTOM"];

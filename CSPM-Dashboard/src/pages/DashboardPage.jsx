@@ -9,10 +9,10 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 /* ── Palette & helpers ──────────────────────────────────────────────────────── */
 const S = {
-  CRITICAL: { color: "#ff3b30", bg: "rgba(255,59,48,0.10)",  label: "CRITICAL" },
-  HIGH:     { color: "#ff9500", bg: "rgba(255,149,0,0.10)",  label: "HIGH" },
-  MEDIUM:   { color: "#ffd60a", bg: "rgba(255,214,10,0.10)", label: "MEDIUM" },
-  LOW:      { color: "#34c759", bg: "rgba(52,199,89,0.08)",  label: "LOW" },
+  CRITICAL: { color: "#dc2626", bg: "rgba(220,38,38,0.08)",  label: "CRITICAL" },
+  HIGH:     { color: "#ea580c", bg: "rgba(234,88,12,0.08)",  label: "HIGH" },
+  MEDIUM:   { color: "#ca8a04", bg: "rgba(202,138,4,0.08)",  label: "MEDIUM" },
+  LOW:      { color: "#16a34a", bg: "rgba(22,163,74,0.07)",  label: "LOW" },
 };
 const SEV_LIST = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
@@ -204,7 +204,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
     return true;
   }), [findings, sevPick, statusPick, search, statuses]);
 
-  const trendColors = ["#0071e3", "#bf5af2", "#34c759", "#ff9500", "#ff3b30"];
+  const trendColors = ["#1b61c9", "#7c3aed", "#16a34a", "#ea580c", "#dc2626"];
 
   /* ── Layout uses a 12-col mental grid ─────────────────────────────────────── */
   const font = (size, weight = 400) => ({
@@ -292,7 +292,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
         {/* Score hero */}
         <div style={{
           background: "var(--card)", borderRadius: 12,
-          boxShadow: "rgba(0,0,0,0.22) 3px 5px 30px 0px",
+          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(45,127,249,0.18) 0px 1px 4px",
           padding: "24px 28px", display: "flex", flexDirection: "column",
           justifyContent: "center", alignItems: "center", position: "relative",
         }}>
@@ -329,7 +329,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
           {/* Accounts card */}
           <div style={{
             background: "var(--card)", borderRadius: 12,
-            boxShadow: "rgba(0,0,0,0.22) 3px 5px 30px 0px",
+            boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(45,127,249,0.18) 0px 1px 4px",
             padding: "18px 16px", display: "flex", flexDirection: "column", justifyContent: "space-between",
           }}>
             <div style={{ ...font(9, 700), color: "var(--accent3)", letterSpacing: "0.12em" }}>ACCOUNTS</div>
@@ -578,7 +578,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
       {trend.length > 1 && (
         <div style={{
           background: "var(--card)", borderRadius: 12,
-          boxShadow: "rgba(0,0,0,0.22) 3px 5px 30px 0px",
+          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(45,127,249,0.18) 0px 1px 4px",
           marginBottom: 14, padding: "16px 18px 8px",
         }}>
           <div style={{ ...font(10, 700), color: "var(--accent3)", letterSpacing: "0.12em",
@@ -613,7 +613,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
       {/* ═══════════════════ FINDINGS TABLE ═══════════════════ */}
       <div style={{
         background: "var(--card)", borderRadius: 12,
-        boxShadow: "rgba(0,0,0,0.22) 3px 5px 30px 0px",
+        boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(45,127,249,0.18) 0px 1px 4px",
       }}>
         {/* Toolbar */}
         <div style={{

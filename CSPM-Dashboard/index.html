@@ -8,56 +8,58 @@
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
       :root {
-        /* ── Surfaces — Apple Black ── */
-        --bg:       #000000;
-        --surface:  #111111;
-        --card:     #1c1c1e;
-        --border:   rgba(255,255,255,0.08);
+        /* ── Surfaces — Airtable Light ── */
+        --bg:       #f8fafc;
+        --surface:  #f1f4f9;
+        --card:     #ffffff;
+        --border:   #e0e2e6;
 
-        /* ── Text ── */
-        --accent:   #ffffff;
-        --accent2:  rgba(255,255,255,0.6);
-        --accent3:  rgba(255,255,255,0.3);
+        /* ── Text — Deep Navy ── */
+        --accent:   #181d26;
+        --accent2:  rgba(4,14,32,0.69);
+        --accent3:  rgba(4,14,32,0.42);
 
-        /* ── Single accent — Apple Blue ── */
-        --cyan:     #0071e3;
+        /* ── Single accent — Airtable Blue ── */
+        --cyan:     #1b61c9;
 
-        /* ── Severity / data colors — Apple system palette ── */
-        --green:    #34c759;
-        --red:      #ff3b30;
-        --orange:   #ff9500;
-        --yellow:   #ffd60a;
-        --blue:     #0071e3;
-        --magenta:  #bf5af2;
-        --purple:   #bf5af2;
+        /* ── Severity / data colors ── */
+        --green:    #16a34a;
+        --red:      #dc2626;
+        --orange:   #ea580c;
+        --yellow:   #ca8a04;
+        --blue:     #1b61c9;
+        --magenta:  #7c3aed;
+        --purple:   #7c3aed;
 
-        /* ── Shadows ── */
-        --glow-cyan:    rgba(0,113,227,0.22) 3px 5px 30px 0px;
-        --glow-magenta: 0 4px 16px rgba(191,90,242,0.12);
-        --glow-green:   0 4px 16px rgba(52,199,89,0.15);
-        --glow-red:     0 4px 16px rgba(255,59,48,0.15);
+        /* ── Shadows — Airtable blue-tinted ── */
+        --shadow-card:    rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(45,127,249,0.28) 0px 1px 3px, rgba(0,0,0,0.06) 0px 0px 0px 0.5px inset;
+        --shadow-soft:    rgba(15,48,106,0.05) 0px 0px 20px;
+        --glow-cyan:      rgba(27,97,201,0.18) 0px 4px 16px;
+        --glow-magenta:   0 4px 16px rgba(124,58,237,0.14);
+        --glow-green:     0 4px 16px rgba(22,163,74,0.14);
+        --glow-red:       0 4px 16px rgba(220,38,38,0.14);
 
-        /* ── Fonts — SF Pro via system ── */
-        --font-display: -apple-system, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
-        --font-ui:      -apple-system, "SF Pro Text",    "Helvetica Neue", Helvetica, Arial, sans-serif;
-        --font-mono:    "SF Mono", "JetBrains Mono", "Fira Code", monospace;
+        /* ── Fonts — Haas via system ── */
+        --font-display: -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --font-ui:      -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --font-mono:    "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 
         /* ── Component tokens ── */
-        --sidebar-border:    rgba(255,255,255,0.06);
-        --nav-divider:       rgba(255,255,255,0.05);
-        --nav-active-bg:     rgba(0,113,227,0.12);
+        --sidebar-border:    #e0e2e6;
+        --nav-divider:       #e0e2e6;
+        --nav-active-bg:     rgba(27,97,201,0.08);
         --nav-active-glow:   transparent;
-        --admin-active-bg:   rgba(0,113,227,0.12);
+        --admin-active-bg:   rgba(27,97,201,0.08);
         --admin-active-glow: transparent;
-        --bottom-divider:    rgba(255,255,255,0.06);
-        --role-admin-bg:     rgba(0,113,227,0.10);
-        --role-admin-border: rgba(0,113,227,0.30);
-        --role-super-bg:     rgba(191,90,242,0.10);
-        --role-super-border: rgba(191,90,242,0.30);
+        --bottom-divider:    #e0e2e6;
+        --role-admin-bg:     rgba(27,97,201,0.08);
+        --role-admin-border: rgba(27,97,201,0.28);
+        --role-super-bg:     rgba(124,58,237,0.08);
+        --role-super-border: rgba(124,58,237,0.28);
 
         /* ── Radius ── */
-        --radius:    8px;
-        --radius-lg: 12px;
+        --radius:    12px;
+        --radius-lg: 16px;
       }
 
       html, body, #root {
@@ -69,6 +71,7 @@
       body {
         font-family: var(--font-ui);
         font-size: 14px;
+        letter-spacing: 0.08px;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
       }
@@ -76,8 +79,8 @@
       /* ── Scrollbar ── */
       ::-webkit-scrollbar { width: 5px; height: 5px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
-      ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+      ::-webkit-scrollbar-thumb { background: rgba(24,29,38,0.14); border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(24,29,38,0.24); }
 
       input, select, button, textarea { font-family: inherit; }
       input::placeholder, textarea::placeholder { color: var(--accent3); }
@@ -85,7 +88,7 @@
       input:focus, select:focus, textarea:focus {
         outline: none !important;
         border-color: var(--cyan) !important;
-        box-shadow: 0 0 0 3px rgba(0,113,227,0.25) !important;
+        box-shadow: 0 0 0 3px rgba(27,97,201,0.18) !important;
       }
 
       /* ── Animations ── */
@@ -93,7 +96,7 @@
         to { transform: rotate(360deg); }
       }
       @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(8px); }
+        from { opacity: 0; transform: translateY(6px); }
         to   { opacity: 1; transform: translateY(0); }
       }
       @keyframes slideInLeft {
@@ -105,7 +108,7 @@
         100% { background-position: 200% 0; }
       }
       @keyframes modalIn {
-        from { opacity: 0; transform: scale(0.96) translateY(4px); }
+        from { opacity: 0; transform: scale(0.97) translateY(4px); }
         to   { opacity: 1; transform: scale(1) translateY(0); }
       }
       @keyframes overlayIn {
@@ -113,7 +116,7 @@
         to   { opacity: 1; }
       }
       @keyframes slideUp {
-        from { opacity: 0; transform: translateY(12px); }
+        from { opacity: 0; transform: translateY(10px); }
         to   { opacity: 1; transform: translateY(0); }
       }
       @keyframes pulse {
@@ -127,73 +130,69 @@
         100% { top: 100vh;  opacity: 0; }
       }
 
-      /* Reduced motion: keep fades, skip transforms */
+      /* Reduced motion */
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after {
           animation-duration: 0.15s !important;
           transition-duration: 0.15s !important;
         }
-        @keyframes modalIn {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        @keyframes slideUp {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
+        @keyframes modalIn  { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp  { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
       }
 
-      /* ── Button styles — Apple ── */
+      /* ── Button styles — Airtable ── */
       .btn-primary {
         position: relative;
-        background: #0071e3;
+        background: #1b61c9;
         color: #ffffff;
         border: none;
-        border-radius: 8px;
-        padding: 8px 15px;
-        font-weight: 400;
-        letter-spacing: -0.374px;
+        border-radius: 12px;
+        padding: 8px 16px;
+        font-weight: 500;
+        font-size: 14px;
+        letter-spacing: 0.08px;
         cursor: pointer;
-        transition: background 0.15s;
+        transition: background 0.15s, box-shadow 0.15s;
+        box-shadow: rgba(0,0,0,0.32) 0px 0px 1px, rgba(45,127,249,0.28) 0px 1px 3px;
       }
-      .btn-primary:hover  { background: #0077ed; }
-      .btn-primary:active { background: #006edb; transform: scale(0.98); }
+      .btn-primary:hover  { background: #254fad; box-shadow: rgba(0,0,0,0.32) 0px 0px 1px, rgba(45,127,249,0.4) 0px 2px 6px; }
+      .btn-primary:active { background: #1a55b8; transform: scale(0.98); }
 
       .btn-ghost {
         position: relative;
-        background: transparent;
+        background: #ffffff;
         border: 1px solid var(--border);
         color: var(--accent2);
-        border-radius: 8px;
-        font-weight: 400;
+        border-radius: 12px;
+        font-weight: 500;
+        letter-spacing: 0.08px;
         cursor: pointer;
         transition: all 0.15s;
+        box-shadow: rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.06) 0px 1px 2px;
       }
       .btn-ghost:hover {
-        border-color: #0071e3;
-        color: #0071e3;
-        background: rgba(0,113,227,0.05);
+        border-color: #1b61c9;
+        color: #1b61c9;
+        background: rgba(27,97,201,0.04);
       }
 
       .btn-danger {
         background: transparent;
-        border: 1px solid rgba(255,59,48,0.3);
+        border: 1px solid rgba(220,38,38,0.28);
         color: var(--red);
-        border-radius: 8px;
-        font-weight: 400;
+        border-radius: 12px;
+        font-weight: 500;
+        letter-spacing: 0.08px;
         cursor: pointer;
         transition: all 0.15s;
       }
       .btn-danger:hover {
-        background: rgba(255,59,48,0.08);
+        background: rgba(220,38,38,0.06);
         border-color: var(--red);
       }
 
-      /* Legacy compat: neon-btn maps to btn-ghost */
+      /* Legacy compat */
       .neon-btn {
         position: relative;
         overflow: hidden;
@@ -202,26 +201,23 @@
       .neon-btn:hover {
         border-color: var(--cyan) !important;
         color: var(--cyan) !important;
-        box-shadow: rgba(0,113,227,0.22) 3px 5px 30px 0px;
+        box-shadow: var(--glow-cyan);
       }
 
-      /* Legacy compat: neon-card maps to clean card */
-      .neon-card {
-        position: relative;
-      }
+      .neon-card { position: relative; }
 
       /* ── Sidebar nav ── */
       .nav-btn {
         position: relative;
         overflow: hidden;
         transition: background 0.15s, color 0.15s;
-        border-radius: 6px;
+        border-radius: 8px;
         margin: 0 8px;
         width: calc(100% - 16px) !important;
       }
       @media (hover: hover) and (pointer: fine) {
         .nav-btn:hover {
-          background: rgba(255,255,255,0.04) !important;
+          background: rgba(27,97,201,0.06) !important;
         }
       }
       .nav-btn.active {
@@ -245,49 +241,61 @@
         background: var(--green);
       }
 
-      /* ═══ Light mode — Apple ═══ */
-      [data-theme="light"] {
-        --bg:       #f5f5f7;
-        --surface:  #f5f5f7;
-        --card:     #ffffff;
-        --border:   rgba(0,0,0,0.08);
+      /* ═══ Dark mode — Deep Navy ═══ */
+      [data-theme="dark"] {
+        --bg:       #0f1117;
+        --surface:  #171c28;
+        --card:     #1e2532;
+        --border:   rgba(255,255,255,0.09);
 
-        --accent:   #1d1d1f;
-        --accent2:  rgba(0,0,0,0.6);
-        --accent3:  rgba(0,0,0,0.48);
+        --accent:   #f0f4ff;
+        --accent2:  rgba(240,244,255,0.65);
+        --accent3:  rgba(240,244,255,0.38);
 
-        --cyan:     #0071e3;
-        --green:    #1c7c4a;
-        --red:      #d70015;
-        --orange:   #c05c00;
-        --yellow:   #a67c00;
-        --blue:     #0071e3;
-        --magenta:  #8e3ac5;
-        --purple:   #8e3ac5;
+        --cyan:     #4f8ef7;
+        --green:    #34d399;
+        --red:      #f87171;
+        --orange:   #fb923c;
+        --yellow:   #fbbf24;
+        --blue:     #4f8ef7;
+        --magenta:  #a78bfa;
+        --purple:   #a78bfa;
 
-        --glow-cyan:    rgba(0,113,227,0.12) 3px 5px 30px 0px;
-        --glow-magenta: 0 4px 16px rgba(142,58,197,0.12);
-        --glow-green:   0 4px 16px rgba(28,124,74,0.12);
-        --glow-red:     0 4px 16px rgba(215,0,21,0.12);
+        --shadow-card:    rgba(0,0,0,0.6) 0px 0px 1px, rgba(0,0,0,0.3) 0px 4px 16px;
+        --shadow-soft:    rgba(0,0,0,0.3) 0px 0px 20px;
+        --glow-cyan:      rgba(79,142,247,0.18) 0px 4px 16px;
 
-        --sidebar-border:    rgba(0,0,0,0.08);
-        --nav-divider:       rgba(0,0,0,0.06);
-        --nav-active-bg:     rgba(0,113,227,0.08);
-        --admin-active-bg:   rgba(0,113,227,0.08);
-        --bottom-divider:    rgba(0,0,0,0.06);
-        --role-admin-bg:     rgba(0,113,227,0.08);
-        --role-admin-border: rgba(0,113,227,0.25);
-        --role-super-bg:     rgba(142,58,197,0.08);
-        --role-super-border: rgba(142,58,197,0.25);
+        --sidebar-border:    rgba(255,255,255,0.07);
+        --nav-divider:       rgba(255,255,255,0.07);
+        --nav-active-bg:     rgba(79,142,247,0.12);
+        --admin-active-bg:   rgba(79,142,247,0.12);
+        --bottom-divider:    rgba(255,255,255,0.07);
+        --role-admin-bg:     rgba(79,142,247,0.10);
+        --role-admin-border: rgba(79,142,247,0.30);
+        --role-super-bg:     rgba(167,139,250,0.10);
+        --role-super-border: rgba(167,139,250,0.30);
       }
 
-      [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
-      [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+      [data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+      [data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
-      /* ── Light mode glass navbar ── */
-      [data-theme="light"] header {
-        background: rgba(245,245,247,0.85) !important;
-        border-bottom: 1px solid rgba(0,0,0,0.08) !important;
+      [data-theme="dark"] .btn-ghost {
+        background: rgba(255,255,255,0.04);
+        border-color: rgba(255,255,255,0.09);
+        box-shadow: none;
+      }
+      [data-theme="dark"] .btn-ghost:hover {
+        background: rgba(79,142,247,0.1);
+        border-color: #4f8ef7;
+        color: #4f8ef7;
+      }
+
+      /* ── Dark navbar ── */
+      [data-theme="dark"] header {
+        background: rgba(15,17,23,0.92) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+        backdrop-filter: saturate(180%) blur(20px) !important;
+        -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
       }
     </style>
   </head>

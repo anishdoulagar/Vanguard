@@ -162,7 +162,7 @@ export default function App() {
       .catch(() => setNeedsSetup(false)); // if backend unreachable, fall through to normal auth
   }, []);
 
-  const [theme, setTheme] = useState(() => localStorage.getItem("cspm_theme") || "dark");
+  const [theme, setTheme] = useState(() => localStorage.getItem("cspm_theme") || "light");
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("cspm_theme", theme);
@@ -221,8 +221,8 @@ export default function App() {
     <div style={{
       minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
       background: "var(--bg)", color: "var(--cyan)",
-      fontFamily: "var(--font-ui)", fontSize: 13, letterSpacing: "0.1em",
-      fontWeight: 600,
+      fontFamily: "var(--font-ui)", fontSize: 13, letterSpacing: "0.14px",
+      fontWeight: 500,
     }}>
       Initializing Vanguard...
     </div>
@@ -374,14 +374,15 @@ export default function App() {
       fontFamily: "var(--font-mono)", fontSize: 13, boxSizing: "border-box",
     };
     const btnPrimary = {
-      width: "100%", padding: "10px", background: "#0071e3", color: "#ffffff",
-      border: "none", borderRadius: 8, fontFamily: "var(--font-ui)", fontWeight: 400,
-      fontSize: 14, cursor: "pointer", letterSpacing: "-0.224px", marginTop: 4,
+      width: "100%", padding: "10px", background: "#1b61c9", color: "#ffffff",
+      border: "none", borderRadius: 12, fontFamily: "var(--font-ui)", fontWeight: 500,
+      fontSize: 14, cursor: "pointer", letterSpacing: "0.08px", marginTop: 4,
+      boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(45,127,249,0.28) 0px 1px 3px",
     };
     const btnGhost = {
-      width: "100%", padding: "10px", background: "transparent", color: "var(--accent3)",
-      border: "1px solid var(--border)", borderRadius: 6, fontFamily: "var(--font-ui)",
-      fontWeight: 600, fontSize: 12, cursor: "pointer", letterSpacing: "0.04em", marginTop: 8,
+      width: "100%", padding: "10px", background: "var(--card)", color: "var(--accent3)",
+      border: "1px solid var(--border)", borderRadius: 12, fontFamily: "var(--font-ui)",
+      fontWeight: 500, fontSize: 13, cursor: "pointer", letterSpacing: "0.08px", marginTop: 8,
     };
 
     return (
@@ -562,11 +563,11 @@ export default function App() {
 
   const navBtnStyle = (active, _isAdmin) => ({
     display:"flex", alignItems:"center", gap:"6px",
-    padding:"0 12px", height:"100%", border:"none",
+    padding:"0 14px", height:"100%", border:"none",
     background:"transparent",
     color: active ? "var(--cyan)" : "var(--accent2)",
     fontFamily:"var(--font-ui)", fontWeight: active ? 600 : 400,
-    fontSize:"12px", letterSpacing:"-0.12px",
+    fontSize:"13px", letterSpacing:"0.14px",
     cursor:"pointer",
     borderBottom: active ? "2px solid var(--cyan)" : "2px solid transparent",
     transition:"color 0.15s, border-color 0.15s",
@@ -585,16 +586,15 @@ export default function App() {
     <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh", background:"var(--bg)" }}>
       {showSecurity && <SecurityModal />}
 
-      {/* ── Top navbar — Apple glass ── */}
+      {/* ── Top navbar — Airtable clean ── */}
       <header style={{
-        height:"48px", flexShrink:0,
-        background:"rgba(0,0,0,0.8)",
-        backdropFilter:"saturate(180%) blur(20px)",
-        WebkitBackdropFilter:"saturate(180%) blur(20px)",
-        borderBottom:"1px solid rgba(255,255,255,0.06)",
+        height:"52px", flexShrink:0,
+        background:"var(--card)",
+        borderBottom:"1px solid var(--border)",
         display:"flex", alignItems:"stretch",
         padding:"0 24px",
         position:"sticky", top:0, zIndex:50,
+        boxShadow:"rgba(15,48,106,0.05) 0px 1px 8px",
       }} onClick={() => adminMenuOpen && setAdminMenuOpen(false)}>
 
         {/* Logo */}
@@ -605,18 +605,18 @@ export default function App() {
           flexShrink:0,
         }}>
           <div style={{
-            width:26, height:26, borderRadius:6, flexShrink:0,
-            background:"rgba(0,113,227,0.12)", border:"1.5px solid rgba(0,113,227,0.3)",
+            width:28, height:28, borderRadius:8, flexShrink:0,
+            background:"rgba(27,97,201,0.10)", border:"1.5px solid rgba(27,97,201,0.25)",
             display:"flex", alignItems:"center", justifyContent:"center", color:"var(--cyan)",
           }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
           </div>
           <span style={{
-            fontFamily:"var(--font-display)", fontWeight:900,
-            fontSize:"13px", letterSpacing:"0.12em", color:"var(--cyan)",
-          }}>VANGUARD</span>
+            fontFamily:"var(--font-display)", fontWeight:700,
+            fontSize:"14px", letterSpacing:"0.28px", color:"var(--accent)",
+          }}>Vanguard</span>
         </div>
 
         {/* Main nav items */}
@@ -666,8 +666,8 @@ export default function App() {
                 <div style={{
                   position:"absolute", top:"calc(100% + 4px)", left:0,
                   background:"var(--card)", border:"1px solid var(--border)",
-                  borderRadius:10, overflow:"hidden",
-                  boxShadow:"0 12px 40px rgba(0,0,0,0.4)",
+                  borderRadius:12, overflow:"hidden",
+                  boxShadow:"rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 4px 16px, rgba(45,127,249,0.14) 0px 2px 8px",
                   minWidth:180, zIndex:100,
                 }} onClick={e => e.stopPropagation()}>
                   {ADMIN_NAV_ITEMS.filter(item =>
@@ -679,10 +679,10 @@ export default function App() {
                         style={{
                           display:"flex", alignItems:"center", gap:9,
                           width:"100%", padding:"10px 16px", border:"none",
-                          background: active ? "rgba(0,113,227,0.08)" : "transparent",
+                          background: active ? "rgba(27,97,201,0.08)" : "transparent",
                           color: active ? "var(--cyan)" : "var(--accent2)",
                           fontFamily:"var(--font-ui)", fontWeight: active ? 600 : 400,
-                          fontSize:"12px", letterSpacing:"-0.12px", cursor:"pointer",
+                          fontSize:"13px", letterSpacing:"0.14px", cursor:"pointer",
                           textAlign:"left", transition:"background 0.12s, color 0.12s",
                           borderLeft: active ? "2px solid var(--cyan)" : "2px solid transparent",
                         }}

@@ -52,7 +52,7 @@ function DotGrid() {
         const r     = d.r + near * 1.8;
         ctx.beginPath();
         ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0,113,227,${alpha})`;
+        ctx.fillStyle = `rgba(27,97,201,${alpha})`;
         ctx.fill();
       }
       raf.current = requestAnimationFrame(draw);
@@ -110,8 +110,8 @@ function FloatInput({ label, type = "text", value, onChange, placeholder = "", a
           paddingBottom: lifted ? 7 : 14,
           paddingLeft: 14,
           paddingRight: children ? 44 : 14,
-          background: focused ? "rgba(0,113,227,0.03)" : "rgba(255,255,255,0.02)",
-          border: `1.5px solid ${focused ? "var(--cyan)" : "rgba(255,255,255,0.08)"}`,
+          background: focused ? "rgba(27,97,201,0.03)" : "var(--card)",
+          border: `1.5px solid ${focused ? "var(--cyan)" : "var(--border)"}`,
           borderRadius: 10,
           color: "var(--accent)",
           fontFamily: "var(--font-mono)",
@@ -119,7 +119,7 @@ function FloatInput({ label, type = "text", value, onChange, placeholder = "", a
           boxSizing: "border-box",
           outline: "none",
           transition: "border-color 0.2s, background 0.2s, box-shadow 0.2s",
-          boxShadow: focused ? "0 0 0 3px rgba(0,113,227,0.25)" : "none",
+          boxShadow: focused ? "0 0 0 3px rgba(27,97,201,0.18)" : "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.04) 0px 1px 2px",
         }}
       />
       {children && (
@@ -166,8 +166,8 @@ function FloatPassword({ label, value, onChange, showStrength }) {
             paddingBottom: lifted ? 7 : 14,
             paddingLeft: 14,
             paddingRight: 44,
-            background: focused ? "rgba(0,113,227,0.03)" : "rgba(255,255,255,0.02)",
-            border: `1.5px solid ${focused ? "var(--cyan)" : "rgba(255,255,255,0.08)"}`,
+            background: focused ? "rgba(27,97,201,0.03)" : "var(--card)",
+            border: `1.5px solid ${focused ? "var(--cyan)" : "var(--border)"}`,
             borderRadius: 10,
             color: "var(--accent)",
             fontFamily: "var(--font-mono)",
@@ -175,7 +175,7 @@ function FloatPassword({ label, value, onChange, showStrength }) {
             boxSizing: "border-box",
             outline: "none",
             transition: "border-color 0.2s, background 0.2s, box-shadow 0.2s",
-            boxShadow: focused ? "0 0 0 3px rgba(0,113,227,0.25)" : "none",
+            boxShadow: focused ? "0 0 0 3px rgba(27,97,201,0.18)" : "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.04) 0px 1px 2px",
           }}
         />
         <button
@@ -236,16 +236,16 @@ function PrimaryBtn({ onClick, loading, children }) {
       onMouseLeave={() => setPressed(false)}
       style={{
         width: "100%", padding: "13px",
-        background: loading ? "transparent" : "var(--cyan)",
+        background: loading ? "transparent" : "#1b61c9",
         color: loading ? "var(--accent3)" : "#ffffff",
-        border: loading ? "1.5px solid rgba(255,255,255,0.07)" : "none",
-        borderRadius: 10,
-        fontFamily: "var(--font-ui)", fontWeight: 800,
-        fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase",
+        border: loading ? "1.5px solid var(--border)" : "none",
+        borderRadius: 12,
+        fontFamily: "var(--font-ui)", fontWeight: 500,
+        fontSize: 14, letterSpacing: "0.08px",
         cursor: loading ? "not-allowed" : "pointer",
-        transform: pressed && !loading ? "scale(0.97)" : "scale(1)",
+        transform: pressed && !loading ? "scale(0.98)" : "scale(1)",
         transition: "transform 0.12s cubic-bezier(0.23,1,0.32,1), box-shadow 0.2s",
-        boxShadow: !loading && !pressed ? "rgba(0,113,227,0.22) 3px 5px 30px 0px" : "none",
+        boxShadow: !loading && !pressed ? "rgba(0,0,0,0.32) 0px 0px 1px, rgba(45,127,249,0.32) 0px 2px 8px" : "none",
       }}
     >
       {loading ? (
@@ -585,14 +585,14 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
             width: "100%", letterSpacing: "0.4em", textAlign: "center",
             fontSize: 28, fontFamily: "var(--font-mono)", fontWeight: 600,
             paddingTop: 16, paddingBottom: 16,
-            background: "rgba(255,255,255,0.02)",
-            border: "1.5px solid rgba(255,255,255,0.08)",
+            background: "var(--card)",
+            border: "1.5px solid var(--border)",
             borderRadius: 10, color: "var(--accent)", boxSizing: "border-box",
             outline: "none", marginBottom: 14,
             transition: "border-color 0.18s, box-shadow 0.18s",
           }}
-          onFocus={e => { e.target.style.borderColor = "var(--cyan)"; e.target.style.boxShadow = "0 0 0 3px rgba(0,113,227,0.25)"; }}
-          onBlur={e  => { e.target.style.borderColor = "rgba(255,255,255,0.08)"; e.target.style.boxShadow = "none"; }}
+          onFocus={e => { e.target.style.borderColor = "var(--cyan)"; e.target.style.boxShadow = "0 0 0 3px rgba(27,97,201,0.18)"; }}
+          onBlur={e  => { e.target.style.borderColor = "var(--border)"; e.target.style.boxShadow = "none"; }}
         />
 
         <div style={{ textAlign: "center", marginBottom: 16 }}>
@@ -648,7 +648,7 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 1, overflow: "hidden" }}>
         <div style={{
           position: "absolute", width: "100%", height: "1px",
-          background: "linear-gradient(90deg, transparent 0%, rgba(0,113,227,0.07) 40%, rgba(0,113,227,0.07) 60%, transparent 100%)",
+          background: "linear-gradient(90deg, transparent 0%, rgba(27,97,201,0.07) 40%, rgba(27,97,201,0.07) 60%, transparent 100%)",
           animation: "scanLine 9s linear infinite",
         }} />
       </div>
@@ -658,7 +658,7 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
         position: "fixed", top: "50%", left: "50%",
         transform: "translate(-50%, -50%)",
         width: 700, height: 500,
-        background: "radial-gradient(ellipse, rgba(0,113,227,0.04) 0%, transparent 68%)",
+        background: "radial-gradient(ellipse, rgba(27,97,201,0.06) 0%, transparent 68%)",
         pointerEvents: "none", zIndex: 1,
       }} />
 
@@ -672,7 +672,7 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
           width: "100%", maxWidth: 420,
           background: "var(--card)",
           borderRadius: 18,
-          boxShadow: "rgba(0,0,0,0.22) 3px 5px 30px 0px, rgba(0,0,0,0.5) 0 16px 60px 0px",
+          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 4px 16px, rgba(45,127,249,0.28) 0px 2px 12px",
           opacity: cardVisible ? 1 : 0,
           transform: cardVisible ? "translateY(0) perspective(1200px)" : "translateY(22px) perspective(1200px)",
           transition: "opacity 0.55s cubic-bezier(0.23,1,0.32,1), transform 0.55s cubic-bezier(0.23,1,0.32,1)",
@@ -690,7 +690,7 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
             }}>
               <div style={{
                 width: 32, height: 32, borderRadius: 8,
-                background: "rgba(0,113,227,0.12)", border: "1.5px solid rgba(0,113,227,0.3)",
+                background: "rgba(27,97,201,0.10)", border: "1.5px solid rgba(27,97,201,0.25)",
                 display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cyan)",
                 flexShrink: 0,
               }}>
@@ -699,8 +699,8 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
                 </svg>
               </div>
               <div>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: 16, letterSpacing: "0.1em", color: "var(--cyan)" }}>VANGUARD</div>
-                <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--accent3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>CSPM Platform</div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, letterSpacing: "0.28px", color: "var(--accent)" }}>Vanguard</div>
+                <div style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--accent3)", letterSpacing: "0.14px" }}>CSPM Platform</div>
               </div>
             </div>
 
