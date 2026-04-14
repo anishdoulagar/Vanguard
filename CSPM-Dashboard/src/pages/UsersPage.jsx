@@ -731,7 +731,7 @@ export default function UsersPage({ token, currentUser }) {
   );
 
   return (
-    <div style={{ padding: "32px 40px", maxWidth: 1200 }}>
+    <div style={{ padding: "32px 40px", maxWidth: 1280, margin: "0 auto" }}>
 
       {showInvite && <InviteUserModal token={token} onClose={() => setShowInvite(false)} />}
       {deleteTarget && <DeleteConfirmModal user={deleteTarget} token={token} onDeleted={onUserDeleted} onClose={() => setDeleteTarget(null)} />}
@@ -747,7 +747,7 @@ export default function UsersPage({ token, currentUser }) {
               <circle cx="9" cy="7" r="4"/>
               <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
             </svg>
-            <h1 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800, color: "var(--accent)", margin: 0, letterSpacing: "0.04em" }}>
+            <h1 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: "var(--accent)", margin: 0, letterSpacing: "0.14px" }}>
               User Management
             </h1>
           </div>
@@ -778,7 +778,7 @@ export default function UsersPage({ token, currentUser }) {
 
         {/* Column headers */}
         <div style={{
-          display: "grid", gridTemplateColumns: "1fr 90px 90px 148px 158px 68px 200px",
+          display: "grid", gridTemplateColumns: "3fr 1fr 1fr 1.4fr 1.4fr 0.8fr 2fr",
           padding: "10px 20px", borderBottom: "1px solid var(--border)", background: "var(--surface)",
         }}>
           {["USER", "ROLE", "STATUS", "ACCESS EXPIRES", "PERMISSIONS", "MFA", "ACTIONS"].map(h => (
@@ -800,7 +800,7 @@ export default function UsersPage({ token, currentUser }) {
 
           return (
             <div key={u.id} style={{
-              display: "grid", gridTemplateColumns: "1fr 90px 90px 148px 158px 68px 200px",
+              display: "grid", gridTemplateColumns: "3fr 1fr 1fr 1.4fr 1.4fr 0.8fr 2fr",
               padding: "16px 20px", alignItems: "center",
               borderBottom: i < users.length - 1 ? "1px solid var(--border)" : "none",
               background: inactive ? "rgba(224,85,85,0.03)" : isSelf ? "rgba(123,140,222,0.04)" : "transparent",
