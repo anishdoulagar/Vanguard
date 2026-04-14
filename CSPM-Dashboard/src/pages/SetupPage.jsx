@@ -48,6 +48,34 @@ function DotGrid() {
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+function validatePassword(pw) {
+  if (!pw || pw.length < 8)       return "At least 8 characters required.";
+  if (!/[A-Z]/.test(pw))          return "Must include at least one uppercase letter.";
+  if (!/[a-z]/.test(pw))          return "Must include at least one lowercase letter.";
+  if (!/[^A-Za-z0-9]/.test(pw))   return "Must include at least one special character (!@#$…).";
+  return null;
+}
+
+function PasswordRequirements({ pw }) {
+  const reqs = [
+    { label: "8+ characters",          met: pw.length >= 8 },
+    { label: "Uppercase letter (A–Z)",  met: /[A-Z]/.test(pw) },
+    { label: "Lowercase letter (a–z)",  met: /[a-z]/.test(pw) },
+    { label: "Special character (!@#…)", met: /[^A-Za-z0-9]/.test(pw) },
+  ];
+  if (!pw) return null;
+  return (
+    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
+      {reqs.map(r => (
+        <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontFamily: "var(--font-ui)" }}>
+          <span style={{ color: r.met ? "var(--green)" : "var(--accent3)", fontSize: 10 }}>{r.met ? "✓" : "○"}</span>
+          <span style={{ color: r.met ? "var(--green)" : "var(--accent3)" }}>{r.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function passwordStrength(pw) {
   if (!pw) return { level: 0, label: "", color: "" };
   let score = 0;
@@ -85,22 +113,7 @@ function PasswordField({ label, value, onChange }) {
           }
         </button>
       </div>
-      {value && (
-        <>
-          <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-            {[1,2,3,4,5].map(i => (
-              <div key={i} style={{
-                flex: 1, height: 3, borderRadius: 2,
-                background: str.level >= i ? str.color : "var(--border)",
-                transition: "background 0.2s",
-              }} />
-            ))}
-          </div>
-          <div style={{ fontSize: 10, marginTop: 5, color: str.color, fontFamily: "var(--font-ui)" }}>
-            {str.label}
-          </div>
-        </>
-      )}
+      <PasswordRequirements pw={value} />
     </div>
   );
 }
@@ -134,7 +147,8 @@ export default function SetupPage({ onSetupComplete }) {
   async function handleCreate() {
     if (!name || !username || !email || !password) { setError("All fields are required."); return; }
     if (username.length < 3) { setError("Username must be at least 3 characters."); return; }
-    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    const pwErr = validatePassword(password);
+    if (pwErr) { setError(pwErr); return; }
     setLoading(true); setError(null);
     try {
       const res  = await fetch(`${API}/auth/signup`, {
@@ -170,7 +184,7 @@ export default function SetupPage({ onSetupComplete }) {
         width: "100%", maxWidth: 440,
         background: "var(--card)",
         borderRadius: 18,
-        boxShadow: "rgba(0,0,0,0.22) 3px 5px 30px 0px, rgba(0,0,0,0.5) 0 16px 60px 0px",
+        boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 4px 16px, rgba(45,127,249,0.28) 0px 2px 12px",
       }}>
         <div style={{ background: "var(--card)", borderRadius: 18, padding: "44px 40px" }}>
 
@@ -178,7 +192,7 @@ export default function SetupPage({ onSetupComplete }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
             <div style={{
               width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-              background: "rgba(0,113,227,0.12)", border: "1.5px solid rgba(0,113,227,0.3)",
+              background: "rgba(27,97,201,0.10)", border: "1.5px solid rgba(27,97,201,0.25)",
               display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cyan)",
             }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -186,8 +200,8 @@ export default function SetupPage({ onSetupComplete }) {
               </svg>
             </div>
             <div>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: 16, letterSpacing: "0.1em", color: "var(--cyan)" }}>VANGUARD</div>
-              <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--accent3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Initial Setup</div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, letterSpacing: "0.28px", color: "var(--accent)" }}>Vanguard</div>
+              <div style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--accent3)", letterSpacing: "0.14px" }}>Initial Setup</div>
             </div>
           </div>
 
@@ -250,10 +264,10 @@ export default function SetupPage({ onSetupComplete }) {
               color: loading ? "var(--accent3)" : "#ffffff",
               border: loading ? "1px solid var(--border)" : "none",
               borderRadius: 8,
-              fontFamily: "var(--font-ui)", fontWeight: 400, fontSize: 14,
-              letterSpacing: "-0.224px", cursor: loading ? "not-allowed" : "pointer",
+              fontFamily: "var(--font-ui)", fontWeight: 500, fontSize: 14,
+              letterSpacing: "0.08px", cursor: loading ? "not-allowed" : "pointer",
               transition: "all 0.15s",
-              boxShadow: !loading ? "rgba(0,113,227,0.22) 3px 5px 30px 0px" : "none",
+              boxShadow: !loading ? "rgba(0,0,0,0.32) 0px 0px 1px, rgba(45,127,249,0.32) 0px 2px 8px" : "none",
             }}
           >
             {loading ? "Creating account..." : "Create Superadmin Account →"}

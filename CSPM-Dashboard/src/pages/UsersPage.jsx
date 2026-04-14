@@ -9,6 +9,34 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const ROLES = ["viewer", "analyst", "admin", "superadmin"];
 
+function validatePassword(pw) {
+  if (!pw || pw.length < 8)       return "At least 8 characters required.";
+  if (!/[A-Z]/.test(pw))          return "Must include at least one uppercase letter.";
+  if (!/[a-z]/.test(pw))          return "Must include at least one lowercase letter.";
+  if (!/[^A-Za-z0-9]/.test(pw))   return "Must include at least one special character (!@#$…).";
+  return null;
+}
+
+function PasswordRequirements({ pw }) {
+  const reqs = [
+    { label: "8+ characters",            met: pw.length >= 8 },
+    { label: "Uppercase letter (A–Z)",   met: /[A-Z]/.test(pw) },
+    { label: "Lowercase letter (a–z)",   met: /[a-z]/.test(pw) },
+    { label: "Special character (!@#…)", met: /[^A-Za-z0-9]/.test(pw) },
+  ];
+  if (!pw) return null;
+  return (
+    <div style={{ marginTop: 6, marginBottom: 4, display: "flex", flexDirection: "column", gap: 3 }}>
+      {reqs.map(r => (
+        <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontFamily: "var(--font-ui)" }}>
+          <span style={{ color: r.met ? "var(--green)" : "var(--accent3)", fontSize: 10 }}>{r.met ? "✓" : "○"}</span>
+          <span style={{ color: r.met ? "var(--green)" : "var(--accent3)" }}>{r.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const ROLE_META = {
   viewer:     { color: "#6ca86c", bg: "rgba(100,168,100,0.12)", border: "rgba(100,168,100,0.3)",  desc: "Read-only" },
   analyst:    { color: "#64a0dc", bg: "rgba(100,160,220,0.12)", border: "rgba(100,160,220,0.3)",  desc: "Scan + findings" },
@@ -452,7 +480,8 @@ function ResetPasswordModal({ targetUser, token, onClose }) {
 
   async function handleReset() {
     if (!newPwd) { setError("Password is required."); return; }
-    if (newPwd.length < 8) { setError("Password must be at least 8 characters."); return; }
+    const pwErr = validatePassword(newPwd);
+    if (pwErr) { setError(pwErr); return; }
     if (newPwd !== confirmPwd) { setError("Passwords do not match."); return; }
     setLoading(true); setError(null);
     try {
@@ -543,8 +572,9 @@ function ResetPasswordModal({ targetUser, token, onClose }) {
 
               <div style={{ marginBottom: 14 }}>
                 <label style={lbl}>New Password</label>
-                <input type="password" placeholder="Min. 8 characters" value={newPwd}
+                <input type="password" placeholder="Min. 8 chars, uppercase, special" value={newPwd}
                        onChange={e => setNewPwd(e.target.value)} style={inp} />
+                <PasswordRequirements pw={newPwd} />
               </div>
               <div style={{ marginBottom: 18 }}>
                 <label style={lbl}>Confirm Password</label>
@@ -727,13 +757,14 @@ export default function UsersPage({ token, currentUser }) {
         </div>
         <button onClick={() => setShowInvite(true)} style={{
           display: "flex", alignItems: "center", gap: 8,
-          padding: "9px 18px", borderRadius: 7, cursor: "pointer",
-          background: "rgba(123,140,222,0.15)", border: "1px solid rgba(123,140,222,0.4)",
-          color: "#7b8cde", fontFamily: "var(--font-ui)", fontWeight: 700,
-          fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.15s",
+          padding: "9px 18px", borderRadius: 12, cursor: "pointer",
+          background: "#1b61c9", border: "none",
+          color: "#ffffff", fontFamily: "var(--font-ui)", fontWeight: 500,
+          fontSize: 13, letterSpacing: "0.14px", transition: "background 0.15s",
+          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(45,127,249,0.28) 0px 1px 3px",
         }}
-          onMouseEnter={e => e.currentTarget.style.background = "rgba(123,140,222,0.25)"}
-          onMouseLeave={e => e.currentTarget.style.background = "rgba(123,140,222,0.15)"}
+          onMouseEnter={e => e.currentTarget.style.background = "#254fad"}
+          onMouseLeave={e => e.currentTarget.style.background = "#1b61c9"}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -748,7 +779,7 @@ export default function UsersPage({ token, currentUser }) {
         {/* Column headers */}
         <div style={{
           display: "grid", gridTemplateColumns: "1fr 90px 90px 148px 158px 68px 200px",
-          padding: "10px 20px", borderBottom: "1px solid var(--border)", background: "rgba(0,0,0,0.2)",
+          padding: "10px 20px", borderBottom: "1px solid var(--border)", background: "var(--surface)",
         }}>
           {["USER", "ROLE", "STATUS", "ACCESS EXPIRES", "PERMISSIONS", "MFA", "ACTIONS"].map(h => (
             <div key={h} style={{ fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, color: "var(--accent3)", letterSpacing: "0.1em" }}>{h}</div>
@@ -770,7 +801,7 @@ export default function UsersPage({ token, currentUser }) {
           return (
             <div key={u.id} style={{
               display: "grid", gridTemplateColumns: "1fr 90px 90px 148px 158px 68px 200px",
-              padding: "14px 20px", alignItems: "center",
+              padding: "16px 20px", alignItems: "center",
               borderBottom: i < users.length - 1 ? "1px solid var(--border)" : "none",
               background: inactive ? "rgba(224,85,85,0.03)" : isSelf ? "rgba(123,140,222,0.04)" : "transparent",
               opacity: inactive ? 0.7 : 1,
@@ -899,33 +930,30 @@ export default function UsersPage({ token, currentUser }) {
               </div>
 
               {/* Actions */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                <div style={{ display: "flex", gap: 5 }}>
-                  <button onClick={() => setTeamTarget(u)} style={{
-                    padding: "4px 10px", borderRadius: 5, cursor: "pointer",
-                    background: "rgba(0,113,227,0.08)", border: "1px solid rgba(0,113,227,0.25)",
-                    color: "var(--cyan)", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
-                    letterSpacing: "0.04em", transition: "all 0.15s", whiteSpace: "nowrap",
-                  }}>Teams</button>
-                  {!isSelf && (
-                    <button onClick={() => setResetTarget(u)} style={{
-                      padding: "4px 10px", borderRadius: 5, cursor: "pointer",
-                      background: "rgba(123,140,222,0.08)", border: "1px solid rgba(123,140,222,0.25)",
-                      color: "#7b8cde", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
-                      letterSpacing: "0.04em", transition: "all 0.15s", whiteSpace: "nowrap",
-                    }}>Reset Pwd</button>
-                  )}
-                </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <button onClick={() => setTeamTarget(u)} style={{
+                  padding: "5px 10px", borderRadius: 6, cursor: "pointer",
+                  background: "rgba(27,97,201,0.08)", border: "1px solid rgba(27,97,201,0.22)",
+                  color: "var(--cyan)", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 600,
+                  letterSpacing: "0.08px", transition: "all 0.15s", whiteSpace: "nowrap",
+                }}>Teams</button>
+                {!isSelf && (
+                  <button onClick={() => setResetTarget(u)} style={{
+                    padding: "5px 10px", borderRadius: 6, cursor: "pointer",
+                    background: "rgba(27,97,201,0.06)", border: "1px solid rgba(27,97,201,0.18)",
+                    color: "var(--cyan)", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 600,
+                    letterSpacing: "0.08px", transition: "all 0.15s", whiteSpace: "nowrap",
+                  }}>Reset Pwd</button>
+                )}
                 {!isSelf && (
                   <button onClick={() => setDeleteTarget(u)} style={{
-                    padding: "4px 10px", borderRadius: 5, cursor: "pointer",
-                    background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.3)",
-                    color: "#e05555", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
-                    letterSpacing: "0.06em", textTransform: "uppercase", transition: "all 0.15s",
-                    alignSelf: "flex-start",
+                    padding: "5px 10px", borderRadius: 6, cursor: "pointer",
+                    background: "rgba(220,38,38,0.07)", border: "1px solid rgba(220,38,38,0.25)",
+                    color: "var(--red)", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 600,
+                    letterSpacing: "0.08px", transition: "all 0.15s", whiteSpace: "nowrap",
                   }}
-                    onMouseEnter={e => e.currentTarget.style.background = "rgba(224,85,85,0.18)"}
-                    onMouseLeave={e => e.currentTarget.style.background = "rgba(224,85,85,0.08)"}
+                    onMouseEnter={e => e.currentTarget.style.background = "rgba(220,38,38,0.14)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "rgba(220,38,38,0.07)"}
                   >Delete</button>
                 )}
               </div>

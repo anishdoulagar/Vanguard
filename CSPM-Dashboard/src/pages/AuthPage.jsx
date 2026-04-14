@@ -2,6 +2,35 @@ import { useState, useEffect, useRef } from "react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+// ── Password policy ───────────────────────────────────────────────────────────
+function validatePassword(pw) {
+  if (!pw || pw.length < 8)       return "At least 8 characters required.";
+  if (!/[A-Z]/.test(pw))          return "Must include at least one uppercase letter.";
+  if (!/[a-z]/.test(pw))          return "Must include at least one lowercase letter.";
+  if (!/[^A-Za-z0-9]/.test(pw))   return "Must include at least one special character (!@#$…).";
+  return null;
+}
+
+function PasswordRequirements({ pw }) {
+  const reqs = [
+    { label: "8+ characters",            met: pw.length >= 8 },
+    { label: "Uppercase letter (A–Z)",   met: /[A-Z]/.test(pw) },
+    { label: "Lowercase letter (a–z)",   met: /[a-z]/.test(pw) },
+    { label: "Special character (!@#…)", met: /[^A-Za-z0-9]/.test(pw) },
+  ];
+  if (!pw) return null;
+  return (
+    <div style={{ marginTop: 8, marginBottom: 4, display: "flex", flexDirection: "column", gap: 3 }}>
+      {reqs.map(r => (
+        <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontFamily: "var(--font-ui)" }}>
+          <span style={{ color: r.met ? "var(--green)" : "var(--accent3)", fontSize: 10 }}>{r.met ? "✓" : "○"}</span>
+          <span style={{ color: r.met ? "var(--green)" : "var(--accent3)" }}>{r.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Password strength ─────────────────────────────────────────────────────────
 function passwordStrength(pw) {
   if (!pw) return { level: 0, label: "", color: "" };
@@ -204,22 +233,7 @@ function FloatPassword({ label, value, onChange, showStrength }) {
           }
         </button>
       </div>
-      {showStrength && value && (
-        <div style={{ marginTop: 6, paddingLeft: 2 }}>
-          <div style={{ display: "flex", gap: 3 }}>
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} style={{
-                flex: 1, height: 2, borderRadius: 2,
-                background: strength.level >= i ? strength.color : "rgba(255,255,255,0.07)",
-                transition: "background 0.25s",
-              }} />
-            ))}
-          </div>
-          <div style={{ fontSize: 10, marginTop: 4, color: strength.color, fontFamily: "var(--font-ui)" }}>
-            {strength.label}
-          </div>
-        </div>
-      )}
+      {showStrength && <PasswordRequirements pw={value} />}
     </div>
   );
 }
@@ -434,7 +448,8 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
 
   async function handleReset() {
     if (!resetPw) { setError("Enter a new password."); return; }
-    if (resetPw.length < 8) { setError("Password must be at least 8 characters."); return; }
+    const pwErr = validatePassword(resetPw);
+    if (pwErr) { setError(pwErr); return; }
     if (!resetToken) { setError("Missing reset token. Use the link from your email."); return; }
     setLoading(true); setError(null);
     try {
@@ -453,7 +468,8 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
   async function handleAcceptInvite() {
     if (!name || !username || !invitePw) { setError("All fields are required."); return; }
     if (username.length < 3) { setError("Username must be at least 3 characters."); return; }
-    if (invitePw.length < 8) { setError("Password must be at least 8 characters."); return; }
+    const pwErr = validatePassword(invitePw);
+    if (pwErr) { setError(pwErr); return; }
     if (!inviteToken) { setError("Missing invite token."); return; }
     setLoading(true); setError(null);
     try {
