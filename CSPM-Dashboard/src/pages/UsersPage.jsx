@@ -446,8 +446,8 @@ function TeamManagerModal({ targetUser, token, allTeams, onClose }) {
                 ) : (
                   <button style={{
                     padding: "4px 10px", borderRadius: 5, fontSize: 10, fontWeight: 700,
-                    cursor: "pointer", border: "1px solid rgba(0,113,227,0.3)",
-                    background: "rgba(0,113,227,0.08)", color: "var(--cyan)",
+                    cursor: "pointer", border: "1px solid rgba(0,0,0,0.3)",
+                    background: "rgba(0,0,0,0.08)", color: "var(--cyan)",
                   }} onClick={() => addToTeam(t.id)} disabled={busy === t.id}>
                     {busy === t.id ? "…" : "Add"}
                   </button>
@@ -758,13 +758,13 @@ export default function UsersPage({ token, currentUser }) {
         <button onClick={() => setShowInvite(true)} style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "9px 18px", borderRadius: 12, cursor: "pointer",
-          background: "#1b61c9", border: "none",
+          background: "#111827", border: "none",
           color: "#ffffff", fontFamily: "var(--font-ui)", fontWeight: 500,
           fontSize: 13, letterSpacing: "0.14px", transition: "background 0.15s",
-          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(45,127,249,0.28) 0px 1px 3px",
+          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.28) 0px 1px 3px",
         }}
           onMouseEnter={e => e.currentTarget.style.background = "#254fad"}
-          onMouseLeave={e => e.currentTarget.style.background = "#1b61c9"}
+          onMouseLeave={e => e.currentTarget.style.background = "#111827"}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -933,14 +933,14 @@ export default function UsersPage({ token, currentUser }) {
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <button onClick={() => setTeamTarget(u)} style={{
                   padding: "5px 10px", borderRadius: 6, cursor: "pointer",
-                  background: "rgba(27,97,201,0.08)", border: "1px solid rgba(27,97,201,0.22)",
+                  background: "rgba(0,0,0,0.08)", border: "1px solid rgba(0,0,0,0.22)",
                   color: "var(--cyan)", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 600,
                   letterSpacing: "0.08px", transition: "all 0.15s", whiteSpace: "nowrap",
                 }}>Teams</button>
                 {!isSelf && (
                   <button onClick={() => setResetTarget(u)} style={{
                     padding: "5px 10px", borderRadius: 6, cursor: "pointer",
-                    background: "rgba(27,97,201,0.06)", border: "1px solid rgba(27,97,201,0.18)",
+                    background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.18)",
                     color: "var(--cyan)", fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 600,
                     letterSpacing: "0.08px", transition: "all 0.15s", whiteSpace: "nowrap",
                   }}>Reset Pwd</button>

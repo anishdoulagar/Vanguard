@@ -47,8 +47,8 @@ function passwordStrength(pw) {
   return               { level: 5, label: "Very strong", color: "var(--green)"  };
 }
 
-// ── Reactive dot grid canvas ──────────────────────────────────────────────────
-function DotGrid() {
+// ── Particle canvas — white dots on dark bg ───────────────────────────────────
+function ParticleCanvas() {
   const canvasRef = useRef(null);
   const mouse     = useRef({ x: -9999, y: -9999 });
   const raf       = useRef(null);
@@ -57,8 +57,8 @@ function DotGrid() {
     const canvas = canvasRef.current;
     const ctx    = canvas.getContext("2d");
     let W, H, dots = [];
-    const SPACING = 38;
-    const GLOW_R  = 220;
+    const SPACING = 44;
+    const GLOW_R  = 180;
 
     function resize() {
       W = canvas.width  = window.innerWidth;
@@ -66,22 +66,20 @@ function DotGrid() {
       dots = [];
       for (let x = SPACING / 2; x < W + SPACING; x += SPACING)
         for (let y = SPACING / 2; y < H + SPACING; y += SPACING)
-          dots.push({ x, y, phase: Math.random() * Math.PI * 2, r: 0.8 + Math.random() * 0.8 });
+          dots.push({ x, y, phase: Math.random() * Math.PI * 2, r: 0.6 + Math.random() * 0.6 });
     }
 
     function draw(t) {
       ctx.clearRect(0, 0, W, H);
-      const light = document.documentElement.dataset.theme === "light";
       const { x: mx, y: my } = mouse.current;
       for (const d of dots) {
         const dist  = Math.hypot(d.x - mx, d.y - my);
         const near  = Math.max(0, 1 - dist / GLOW_R);
-        const pulse = Math.sin(t * 0.0005 + d.phase) * 0.04;
-        const alpha = (light ? 0.09 : 0.13) + near * 0.6 + pulse;
-        const r     = d.r + near * 1.8;
+        const pulse = Math.sin(t * 0.0004 + d.phase) * 0.025;
+        const alpha = 0.08 + near * 0.55 + pulse;
         ctx.beginPath();
-        ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(27,97,201,${alpha})`;
+        ctx.arc(d.x, d.y, d.r + near * 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
         ctx.fill();
       }
       raf.current = requestAnimationFrame(draw);
@@ -105,24 +103,24 @@ function DotGrid() {
   );
 }
 
-// ── Floating label input ──────────────────────────────────────────────────────
+// ── Floating label input — light enterprise style ────────────────────────────
 function FloatInput({ label, type = "text", value, onChange, placeholder = "", autoFocus, children }) {
   const [focused, setFocused] = useState(false);
   const lifted = focused || value.length > 0;
 
   return (
-    <div style={{ position: "relative", marginBottom: 16 }}>
+    <div style={{ position: "relative", marginBottom: 14 }}>
       <label style={{
-        position: "absolute", left: 14, zIndex: 1, pointerEvents: "none",
+        position: "absolute", left: 13, zIndex: 1, pointerEvents: "none",
         top: lifted ? 7 : "50%",
         transform: lifted ? "none" : "translateY(-50%)",
-        fontSize: lifted ? 9 : 13,
-        fontWeight: 700,
-        letterSpacing: lifted ? "0.1em" : "0.01em",
+        fontSize: lifted ? 9 : 14,
+        fontWeight: lifted ? 600 : 400,
+        letterSpacing: lifted ? "0.08em" : "0.01em",
         textTransform: lifted ? "uppercase" : "none",
-        color: focused ? "var(--cyan)" : "var(--accent3)",
+        color: focused ? "#111827" : "#94a3b8",
         fontFamily: "var(--font-ui)",
-        transition: "all 0.2s cubic-bezier(0.23,1,0.32,1)",
+        transition: "all 0.18s cubic-bezier(0.23,1,0.32,1)",
         willChange: "top, font-size, transform",
       }}>{label}</label>
       <input
@@ -135,20 +133,20 @@ function FloatInput({ label, type = "text", value, onChange, placeholder = "", a
         placeholder={focused ? placeholder : ""}
         style={{
           width: "100%",
-          paddingTop: lifted ? 22 : 14,
-          paddingBottom: lifted ? 7 : 14,
-          paddingLeft: 14,
-          paddingRight: children ? 44 : 14,
-          background: focused ? "rgba(27,97,201,0.03)" : "var(--card)",
-          border: `1.5px solid ${focused ? "var(--cyan)" : "var(--border)"}`,
-          borderRadius: 10,
-          color: "var(--accent)",
-          fontFamily: "var(--font-mono)",
+          paddingTop: lifted ? 20 : 13,
+          paddingBottom: lifted ? 7 : 13,
+          paddingLeft: 13,
+          paddingRight: children ? 44 : 13,
+          background: "#ffffff",
+          border: `1.5px solid ${focused ? "#111827" : "#e2e8f0"}`,
+          borderRadius: 8,
+          color: "#111827",
+          fontFamily: "var(--font-ui)",
           fontSize: 14,
           boxSizing: "border-box",
           outline: "none",
-          transition: "border-color 0.2s, background 0.2s, box-shadow 0.2s",
-          boxShadow: focused ? "0 0 0 3px rgba(27,97,201,0.18)" : "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.04) 0px 1px 2px",
+          transition: "border-color 0.15s, box-shadow 0.15s",
+          boxShadow: focused ? "0 0 0 3px rgba(0,0,0,0.12)" : "none",
         }}
       />
       {children && (
@@ -160,27 +158,26 @@ function FloatInput({ label, type = "text", value, onChange, placeholder = "", a
   );
 }
 
-// ── Floating label password ───────────────────────────────────────────────────
+// ── Floating label password — light enterprise style ──────────────────────────
 function FloatPassword({ label, value, onChange, showStrength }) {
   const [show, setShow] = useState(false);
   const [focused, setFocused] = useState(false);
-  const strength = showStrength ? passwordStrength(value) : null;
   const lifted = focused || value.length > 0;
 
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 14 }}>
       <div style={{ position: "relative" }}>
         <label style={{
-          position: "absolute", left: 14, zIndex: 1, pointerEvents: "none",
+          position: "absolute", left: 13, zIndex: 1, pointerEvents: "none",
           top: lifted ? 7 : "50%",
           transform: lifted ? "none" : "translateY(-50%)",
-          fontSize: lifted ? 9 : 13,
-          fontWeight: 700,
-          letterSpacing: lifted ? "0.1em" : "0.01em",
+          fontSize: lifted ? 9 : 14,
+          fontWeight: lifted ? 600 : 400,
+          letterSpacing: lifted ? "0.08em" : "0.01em",
           textTransform: lifted ? "uppercase" : "none",
-          color: focused ? "var(--cyan)" : "var(--accent3)",
+          color: focused ? "#111827" : "#94a3b8",
           fontFamily: "var(--font-ui)",
-          transition: "all 0.2s cubic-bezier(0.23,1,0.32,1)",
+          transition: "all 0.18s cubic-bezier(0.23,1,0.32,1)",
         }}>{label}</label>
         <input
           type={show ? "text" : "password"}
@@ -191,20 +188,20 @@ function FloatPassword({ label, value, onChange, showStrength }) {
           placeholder={focused ? "••••••••" : ""}
           style={{
             width: "100%",
-            paddingTop: lifted ? 22 : 14,
-            paddingBottom: lifted ? 7 : 14,
-            paddingLeft: 14,
+            paddingTop: lifted ? 20 : 13,
+            paddingBottom: lifted ? 7 : 13,
+            paddingLeft: 13,
             paddingRight: 44,
-            background: focused ? "rgba(27,97,201,0.03)" : "var(--card)",
-            border: `1.5px solid ${focused ? "var(--cyan)" : "var(--border)"}`,
-            borderRadius: 10,
-            color: "var(--accent)",
+            background: "#ffffff",
+            border: `1.5px solid ${focused ? "#111827" : "#e2e8f0"}`,
+            borderRadius: 8,
+            color: "#111827",
             fontFamily: "var(--font-mono)",
             fontSize: 14,
             boxSizing: "border-box",
             outline: "none",
-            transition: "border-color 0.2s, background 0.2s, box-shadow 0.2s",
-            boxShadow: focused ? "0 0 0 3px rgba(27,97,201,0.18)" : "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.04) 0px 1px 2px",
+            transition: "border-color 0.15s, box-shadow 0.15s",
+            boxShadow: focused ? "0 0 0 3px rgba(0,0,0,0.12)" : "none",
           }}
         />
         <button
@@ -214,11 +211,11 @@ function FloatPassword({ label, value, onChange, showStrength }) {
           style={{
             position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
             background: "none", border: "none", cursor: "pointer",
-            color: "var(--accent3)", padding: 0, display: "flex",
+            color: "#94a3b8", padding: 0, display: "flex",
             transition: "color 0.15s",
           }}
-          onMouseEnter={e => e.currentTarget.style.color = "var(--cyan)"}
-          onMouseLeave={e => e.currentTarget.style.color = "var(--accent3)"}
+          onMouseEnter={e => e.currentTarget.style.color = "#111827"}
+          onMouseLeave={e => e.currentTarget.style.color = "#94a3b8"}
         >
           {show
             ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -238,35 +235,32 @@ function FloatPassword({ label, value, onChange, showStrength }) {
   );
 }
 
-// ── Primary button with press feedback ───────────────────────────────────────
+// ── Primary button — clean enterprise style ───────────────────────────────────
 function PrimaryBtn({ onClick, loading, children }) {
-  const [pressed, setPressed] = useState(false);
   return (
     <button
       onClick={onClick}
       disabled={loading}
-      onMouseDown={() => setPressed(true)}
-      onMouseUp={() => setPressed(false)}
-      onMouseLeave={() => setPressed(false)}
       style={{
-        width: "100%", padding: "13px",
-        background: loading ? "transparent" : "#1b61c9",
-        color: loading ? "var(--accent3)" : "#ffffff",
-        border: loading ? "1.5px solid var(--border)" : "none",
-        borderRadius: 12,
-        fontFamily: "var(--font-ui)", fontWeight: 500,
-        fontSize: 14, letterSpacing: "0.08px",
+        width: "100%", padding: "11px",
+        background: loading ? "#e2e8f0" : "#111827",
+        color: loading ? "#94a3b8" : "#ffffff",
+        border: "none", borderRadius: 8,
+        fontFamily: "var(--font-ui)", fontWeight: 600,
+        fontSize: 14, letterSpacing: "0.01em",
         cursor: loading ? "not-allowed" : "pointer",
-        transform: pressed && !loading ? "scale(0.98)" : "scale(1)",
-        transition: "transform 0.12s cubic-bezier(0.23,1,0.32,1), box-shadow 0.2s",
-        boxShadow: !loading && !pressed ? "rgba(0,0,0,0.32) 0px 0px 1px, rgba(45,127,249,0.32) 0px 2px 8px" : "none",
+        transition: "background 0.15s, box-shadow 0.15s",
+        boxShadow: loading ? "none" : "0 1px 3px rgba(0,0,0,0.3)",
+        marginTop: 4,
       }}
+      onMouseEnter={e => { if (!loading) e.currentTarget.style.background = "#1f2937"; }}
+      onMouseLeave={e => { if (!loading) e.currentTarget.style.background = "#111827"; }}
     >
       {loading ? (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
           <span style={{
-            display: "inline-block", width: 12, height: 12, borderRadius: "50%",
-            border: "2px solid rgba(255,255,255,0.12)", borderTopColor: "var(--cyan)",
+            display: "inline-block", width: 13, height: 13, borderRadius: "50%",
+            border: "2px solid #cbd5e1", borderTopColor: "#475569",
             animation: "spin 0.7s linear infinite",
           }} />
           {children}
@@ -282,13 +276,13 @@ function LinkBtn({ children, onClick, accent }) {
     <span
       onClick={onClick}
       style={{
-        color: accent ? "var(--cyan)" : "var(--accent3)",
-        fontSize: 12, fontFamily: "var(--font-ui)",
-        cursor: "pointer", fontWeight: accent ? 700 : 400,
+        color: accent ? "#111827" : "#64748b",
+        fontSize: 13, fontFamily: "var(--font-ui)",
+        cursor: "pointer", fontWeight: accent ? 600 : 400,
         transition: "color 0.15s",
       }}
-      onMouseEnter={e => e.currentTarget.style.color = "var(--cyan)"}
-      onMouseLeave={e => e.currentTarget.style.color = accent ? "var(--cyan)" : "var(--accent3)"}
+      onMouseEnter={e => e.currentTarget.style.color = "#1f2937"}
+      onMouseLeave={e => e.currentTarget.style.color = accent ? "#111827" : "#64748b"}
     >{children}</span>
   );
 }
@@ -299,8 +293,8 @@ function ErrMsg({ msg }) {
   return (
     <div style={{
       padding: "10px 14px", borderRadius: 8, marginBottom: 14,
-      background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.2)",
-      color: "var(--red)", fontSize: 12, fontFamily: "var(--font-ui)",
+      background: "#fef2f2", border: "1px solid #fecaca",
+      color: "#dc2626", fontSize: 12, fontFamily: "var(--font-ui)",
       animation: "slideUp 0.2s cubic-bezier(0.23,1,0.32,1)",
     }}>{msg}</div>
   );
@@ -310,8 +304,8 @@ function OkMsg({ msg }) {
   return (
     <div style={{
       padding: "10px 14px", borderRadius: 8, marginBottom: 14,
-      background: "rgba(76,175,125,0.08)", border: "1px solid rgba(76,175,125,0.2)",
-      color: "var(--green)", fontSize: 12, fontFamily: "var(--font-ui)",
+      background: "#f0fdf4", border: "1px solid #bbf7d0",
+      color: "#16a34a", fontSize: 12, fontFamily: "var(--font-ui)",
       animation: "slideUp 0.2s cubic-bezier(0.23,1,0.32,1)",
     }}>{msg}</div>
   );
@@ -491,7 +485,7 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
       <div onKeyDown={e => e.key === "Enter" && handleLogin()}>
         <FloatInput label="Username" value={username} onChange={setUsername} autoFocus />
         <FloatPassword label="Password" value={password} onChange={setPassword} />
-        <div style={{ textAlign: "right", marginTop: -4, marginBottom: 16 }}>
+        <div style={{ textAlign: "right", marginTop: -2, marginBottom: 16 }}>
           <LinkBtn onClick={() => switchTab("forgot")}>Forgot password?</LinkBtn>
         </div>
         <ErrMsg msg={error} /><OkMsg msg={success} />
@@ -505,7 +499,7 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
   function renderForgot() {
     return (
       <div onKeyDown={e => e.key === "Enter" && handleForgot()}>
-        <p style={{ color: "var(--accent3)", fontSize: 13, fontFamily: "var(--font-ui)", lineHeight: 1.6, marginBottom: 20, marginTop: 0 }}>
+        <p style={{ color: "#64748b", fontSize: 13, fontFamily: "var(--font-ui)", lineHeight: 1.6, marginBottom: 20, marginTop: 0 }}>
           Enter your email and we'll send a reset link if that account exists.
         </p>
         <FloatInput label="Email" type="email" value={email} onChange={setEmail} autoFocus />
@@ -523,7 +517,7 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
   function renderReset() {
     return (
       <div onKeyDown={e => e.key === "Enter" && handleReset()}>
-        <p style={{ color: "var(--accent3)", fontSize: 13, fontFamily: "var(--font-ui)", lineHeight: 1.6, marginBottom: 20, marginTop: 0 }}>
+        <p style={{ color: "#64748b", fontSize: 13, fontFamily: "var(--font-ui)", lineHeight: 1.6, marginBottom: 20, marginTop: 0 }}>
           Enter your new password below.
         </p>
         <FloatPassword label="New Password" value={resetPw} onChange={setResetPw} showStrength />
@@ -544,13 +538,13 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
         {inviteInfo && (
           <div style={{
             padding: "10px 14px", borderRadius: 8, marginBottom: 18,
-            background: "rgba(79,143,247,0.06)", border: "1px solid rgba(79,143,247,0.15)",
-            fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--accent2)", lineHeight: 1.6,
+            background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.18)",
+            fontFamily: "var(--font-ui)", fontSize: 12, color: "#475569", lineHeight: 1.6,
           }}>
             Invited as{" "}
-            <strong style={{ color: "var(--cyan)", textTransform: "uppercase" }}>{inviteInfo.role}</strong>
+            <strong style={{ color: "#111827", textTransform: "uppercase" }}>{inviteInfo.role}</strong>
             {" "}for{" "}
-            <strong style={{ color: "var(--accent)" }}>{inviteInfo.email}</strong>
+            <strong style={{ color: "#111827" }}>{inviteInfo.email}</strong>
           </div>
         )}
         <FloatInput label="Full Name" value={name} onChange={setName} autoFocus />
@@ -570,19 +564,19 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
         <div style={{
           display: "flex", alignItems: "center", gap: 10, marginBottom: 20,
           padding: "12px 14px", borderRadius: 8,
-          background: "rgba(0,188,212,0.05)", border: "1px solid rgba(0,188,212,0.14)",
+          background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.15)",
         }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2">
             <rect x="5" y="11" width="14" height="10" rx="2"/>
             <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
           </svg>
-          <span style={{ fontSize: 12, fontFamily: "var(--font-ui)", color: "var(--accent2)", lineHeight: 1.5 }}>
+          <span style={{ fontSize: 12, fontFamily: "var(--font-ui)", color: "#475569", lineHeight: 1.5 }}>
             {useBackup ? "Enter one of your 8-character backup codes." : "Enter the 6-digit code from your authenticator app."}
           </span>
         </div>
 
         <label style={{
-          display: "block", color: "var(--accent3)", fontSize: 9, fontWeight: 700,
+          display: "block", color: "#94a3b8", fontSize: 9, fontWeight: 700,
           letterSpacing: "0.12em", marginBottom: 8, textTransform: "uppercase",
           fontFamily: "var(--font-ui)",
         }}>
@@ -601,14 +595,14 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
             width: "100%", letterSpacing: "0.4em", textAlign: "center",
             fontSize: 28, fontFamily: "var(--font-mono)", fontWeight: 600,
             paddingTop: 16, paddingBottom: 16,
-            background: "var(--card)",
-            border: "1.5px solid var(--border)",
-            borderRadius: 10, color: "var(--accent)", boxSizing: "border-box",
+            background: "#ffffff",
+            border: "1.5px solid #e2e8f0",
+            borderRadius: 8, color: "#111827", boxSizing: "border-box",
             outline: "none", marginBottom: 14,
-            transition: "border-color 0.18s, box-shadow 0.18s",
+            transition: "border-color 0.15s, box-shadow 0.15s",
           }}
-          onFocus={e => { e.target.style.borderColor = "var(--cyan)"; e.target.style.boxShadow = "0 0 0 3px rgba(27,97,201,0.18)"; }}
-          onBlur={e  => { e.target.style.borderColor = "var(--border)"; e.target.style.boxShadow = "none"; }}
+          onFocus={e => { e.target.style.borderColor = "#111827"; e.target.style.boxShadow = "0 0 0 3px rgba(0,0,0,0.12)"; }}
+          onBlur={e  => { e.target.style.borderColor = "#e2e8f0"; e.target.style.boxShadow = "none"; }}
         />
 
         <div style={{ textAlign: "center", marginBottom: 16 }}>
@@ -653,97 +647,64 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
   return (
     <div style={{
       minHeight: "100vh",
-      background: "var(--bg)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "20px",
-      position: "relative", overflow: "hidden",
+      background: "#f9fafb",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "40px 20px",
     }}>
-      <DotGrid />
-
-      {/* Scan line */}
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 1, overflow: "hidden" }}>
-        <div style={{
-          position: "absolute", width: "100%", height: "1px",
-          background: "linear-gradient(90deg, transparent 0%, rgba(27,97,201,0.07) 40%, rgba(27,97,201,0.07) 60%, transparent 100%)",
-          animation: "scanLine 9s linear infinite",
-        }} />
-      </div>
-
-      {/* Radial glow behind card */}
+      {/* Centered card */}
       <div style={{
-        position: "fixed", top: "50%", left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: 700, height: 500,
-        background: "radial-gradient(ellipse, rgba(27,97,201,0.06) 0%, transparent 68%)",
-        pointerEvents: "none", zIndex: 1,
-      }} />
-
-      {/* Card — gradient-border wrapper */}
-      <div
-        ref={cardRef}
-        onMouseMove={onCardMouseMove}
-        onMouseLeave={onCardMouseLeave}
-        style={{
-          position: "relative", zIndex: 2,
-          width: "100%", maxWidth: 420,
-          background: "var(--card)",
-          borderRadius: 18,
-          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 4px 16px, rgba(45,127,249,0.28) 0px 2px 12px",
-          opacity: cardVisible ? 1 : 0,
-          transform: cardVisible ? "translateY(0) perspective(1200px)" : "translateY(22px) perspective(1200px)",
-          transition: "opacity 0.55s cubic-bezier(0.23,1,0.32,1), transform 0.55s cubic-bezier(0.23,1,0.32,1)",
-          willChange: "transform, opacity",
-        }}
-      >
-        <div style={{ background: "var(--card)", borderRadius: 18, overflow: "hidden" }}>
-          <div style={{ padding: "44px 40px", display: "flex", flexDirection: "column" }}>
-
-            {/* Logo */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 10, marginBottom: 32,
-              opacity: cardVisible ? 1 : 0,
-              transition: "opacity 0.5s 0.1s",
-            }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 8,
-                background: "rgba(27,97,201,0.10)", border: "1.5px solid rgba(27,97,201,0.25)",
-                display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cyan)",
-                flexShrink: 0,
-              }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, letterSpacing: "0.28px", color: "var(--accent)" }}>Vanguard</div>
-                <div style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--accent3)", letterSpacing: "0.14px" }}>CSPM Platform</div>
-              </div>
-            </div>
-
-            {/* Title for sub-forms */}
-            {formTitle && (
-              <div style={{
-                marginBottom: 22,
-                opacity: cardVisible ? 1 : 0,
-                transform: cardVisible ? "translateY(0)" : "translateY(8px)",
-                transition: "opacity 0.5s 0.12s, transform 0.5s 0.12s cubic-bezier(0.23,1,0.32,1)",
-              }}>
-                <h2 style={{
-                  fontFamily: "var(--font-display)", fontWeight: 800,
-                  fontSize: 19, color: "var(--accent)", letterSpacing: "0.01em", margin: 0,
-                }}>{formTitle}</h2>
-              </div>
-            )}
-
-            {/* Form cross-fade */}
-            <div style={{
-              opacity: formVisible ? 1 : 0,
-              transform: formVisible ? "translateY(0)" : "translateY(5px)",
-              transition: "opacity 0.13s ease-out, transform 0.13s ease-out",
-            }}>
-              {formContent}
-            </div>
+        width: "100%", maxWidth: 420,
+        animation: "floatIn 0.35s cubic-bezier(0.23,1,0.32,1) both",
+      }}>
+        {/* Logo */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32, justifyContent: "center" }}>
+          <img src="/favicon.svg" width={36} height={36} alt="Vanguard" />
+          <div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "#111827", letterSpacing: "0.01em" }}>VANGUARD</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#9ca3af", letterSpacing: "0.1em" }}>// CSPM</div>
           </div>
+        </div>
+
+        {/* Card */}
+        <div style={{
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 12,
+          padding: "32px 36px 36px",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+        }}>
+          {/* Heading */}
+          <div style={{ marginBottom: 28 }}>
+            <h2 style={{
+              fontFamily: "var(--font-display)", fontWeight: 700,
+              fontSize: 20, color: "#111827",
+              letterSpacing: "-0.02em", margin: "0 0 5px 0",
+            }}>
+              {isMfa ? "Verify identity" : tab === "forgot" ? "Reset password" : tab === "reset" ? "Set new password" : tab === "invite" ? "Complete setup" : "Sign in"}
+            </h2>
+            <p style={{ fontFamily: "var(--font-ui)", fontSize: 13, color: "#6b7280", margin: 0 }}>
+              {isMfa ? "Enter your 6-digit authenticator code"
+               : tab === "login"  ? "Sign in to your Vanguard account"
+               : tab === "forgot" ? "We'll send a reset link to your email"
+               : tab === "reset"  ? "Choose a strong password"
+               : "Create your Vanguard account"}
+            </p>
+          </div>
+
+          {/* Form content */}
+          <div style={{
+            opacity: formVisible ? 1 : 0,
+            transform: formVisible ? "translateY(0)" : "translateY(4px)",
+            transition: "opacity 0.15s, transform 0.15s",
+          }}>
+            {formContent}
+          </div>
+        </div>
+
+        <div style={{ textAlign: "center", marginTop: 20, fontFamily: "var(--font-mono)", fontSize: 10, color: "#d1d5db", letterSpacing: "0.06em" }}>
+          © 2025 Vanguard CSPM · Enterprise Edition
         </div>
       </div>
     </div>

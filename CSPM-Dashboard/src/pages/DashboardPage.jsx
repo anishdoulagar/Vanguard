@@ -9,16 +9,16 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 /* ── Palette & helpers ──────────────────────────────────────────────────────── */
 const S = {
-  CRITICAL: { color: "#dc2626", bg: "rgba(220,38,38,0.08)",  label: "CRITICAL" },
-  HIGH:     { color: "#ea580c", bg: "rgba(234,88,12,0.08)",  label: "HIGH" },
-  MEDIUM:   { color: "#ca8a04", bg: "rgba(202,138,4,0.08)",  label: "MEDIUM" },
-  LOW:      { color: "#16a34a", bg: "rgba(22,163,74,0.07)",  label: "LOW" },
+  CRITICAL: { color: "#111827", bg: "rgba(0,0,0,0.07)",  label: "CRITICAL" },
+  HIGH:     { color: "#374151", bg: "rgba(0,0,0,0.04)",  label: "HIGH" },
+  MEDIUM:   { color: "#6b7280", bg: "rgba(0,0,0,0.03)",  label: "MEDIUM" },
+  LOW:      { color: "#9ca3af", bg: "rgba(0,0,0,0.02)",  label: "LOW" },
 };
 const SEV_LIST = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
 function sColor(s) {
-  if (s == null) return "var(--accent3)";
-  return s >= 80 ? "#10b981" : s >= 60 ? "#f59e0b" : s >= 40 ? "#f97316" : "#ef4444";
+  if (s == null) return "#9ca3af";
+  return s >= 80 ? "#6b7280" : s >= 60 ? "#4b5563" : s >= 40 ? "#1f2937" : "#111827";
 }
 function sLabel(s) {
   if (s == null) return "N/A";
@@ -204,7 +204,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
     return true;
   }), [findings, sevPick, statusPick, search, statuses]);
 
-  const trendColors = ["#1b61c9", "#7c3aed", "#16a34a", "#ea580c", "#dc2626"];
+  const trendColors = ["#111827", "#374151", "#6b7280", "#9ca3af", "#d1d5db"];
 
   /* ── Layout uses a 12-col mental grid ─────────────────────────────────────── */
   const font = (size, weight = 400) => ({
@@ -220,9 +220,9 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
         <div style={{
           position: "fixed", top: 16, right: 16, zIndex: 9999,
           padding: "10px 18px", borderRadius: 8,
-          background: toast.isErr ? "rgba(239,68,68,0.12)" : "rgba(16,185,129,0.10)",
-          border: `1px solid ${toast.isErr ? "rgba(239,68,68,0.30)" : "rgba(16,185,129,0.25)"}`,
-          color: toast.isErr ? "var(--red)" : "var(--green)",
+          background: toast.isErr ? "#fef2f2" : "#f0fdf4",
+          border: `1px solid ${toast.isErr ? "#fecaca" : "#bbf7d0"}`,
+          color: toast.isErr ? "#dc2626" : "#16a34a",
           ...mono(12), boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
           animation: "fadeIn 0.2s ease",
         }}>{toast.msg}</div>
@@ -292,7 +292,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
         {/* Score hero */}
         <div style={{
           background: "var(--card)", borderRadius: 12,
-          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(45,127,249,0.18) 0px 1px 4px",
+          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(0,0,0,0.18) 0px 1px 4px",
           padding: "24px 28px", display: "flex", flexDirection: "column",
           justifyContent: "center", alignItems: "center", position: "relative",
         }}>
@@ -303,7 +303,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                 stroke={sColor(score)} strokeWidth="10"
                 strokeDasharray={`${(score || 0) * 3.77} 377`}
                 strokeLinecap="round"
-                style={{ transition: "stroke-dasharray 1s ease", filter: `drop-shadow(0 0 8px ${sColor(score)}55)` }}
+                style={{ transition: "stroke-dasharray 1s ease" }}
               />
             </svg>
             <div style={{
@@ -329,7 +329,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
           {/* Accounts card */}
           <div style={{
             background: "var(--card)", borderRadius: 12,
-            boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(45,127,249,0.18) 0px 1px 4px",
+            boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(0,0,0,0.18) 0px 1px 4px",
             padding: "18px 16px", display: "flex", flexDirection: "column", justifyContent: "space-between",
           }}>
             <div style={{ ...font(9, 700), color: "var(--accent3)", letterSpacing: "0.12em" }}>ACCOUNTS</div>
@@ -398,7 +398,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                     {pieData.map((e, i) => (
                       <Cell key={i} fill={e.color}
                         onClick={() => setSevPick(p => p === e.name ? "ALL" : e.name)}
-                        style={{ cursor: "pointer", filter: `drop-shadow(0 0 5px ${e.color}55)` }} />
+                        style={{ cursor: "pointer" }} />
                     ))}
                   </Pie>
                   <Tooltip content={<Tip />} />
@@ -448,7 +448,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                     <div style={{
                       height: "100%", borderRadius: 2, transition: "width 0.5s",
                       width: `${(count / max) * 100}%`,
-                      background: `linear-gradient(90deg, var(--orange), var(--cyan))`,
+                      background: "#111827",
                     }} />
                   </div>
                 </div>
@@ -578,7 +578,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
       {trend.length > 1 && (
         <div style={{
           background: "var(--card)", borderRadius: 12,
-          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(45,127,249,0.18) 0px 1px 4px",
+          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(0,0,0,0.18) 0px 1px 4px",
           marginBottom: 14, padding: "16px 18px 8px",
         }}>
           <div style={{ ...font(10, 700), color: "var(--accent3)", letterSpacing: "0.12em",
@@ -613,7 +613,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
       {/* ═══════════════════ FINDINGS TABLE ═══════════════════ */}
       <div style={{
         background: "var(--card)", borderRadius: 12,
-        boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(45,127,249,0.18) 0px 1px 4px",
+        boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(0,0,0,0.18) 0px 1px 4px",
       }}>
         {/* Toolbar */}
         <div style={{
@@ -729,7 +729,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                   {/* Status */}
                   <span style={{
                     ...font(9, 700), letterSpacing: "0.06em",
-                    color: st === "resolved" ? "#10b981" : st === "acknowledged" ? "#f59e0b" : "#f97316",
+                    color: st === "resolved" ? "#6b7280" : st === "acknowledged" ? "#4b5563" : "#1f2937",
                   }}>{st.toUpperCase()}</span>
 
                   {/* Arrow */}
@@ -785,7 +785,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       {["open", "acknowledged", "resolved"].map(s => {
                         const active = st === s;
-                        const c = s === "resolved" ? "#10b981" : s === "acknowledged" ? "#f59e0b" : "#f97316";
+                        const c = s === "resolved" ? "#6b7280" : s === "acknowledged" ? "#4b5563" : "#1f2937";
                         return (
                           <button key={s}
                             onClick={e => { e.stopPropagation(); setFindingStatus(f, s); }}

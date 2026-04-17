@@ -313,8 +313,9 @@ export default function PoliciesPage({ token, role }) {
           { label:"MEDIUM",   value: stats.medium    || 0, color: SEV_COLOR.MEDIUM },
           { label:"LOW",      value: stats.low       || 0, color: SEV_COLOR.LOW },
           { label:"CUSTOM",   value: stats.custom    || 0, color:"#7b8cde" },
-        ].map(s => (
-          <div key={s.label} style={{
+        ].map((s, si) => (
+          <div key={s.label} className="card-lift stagger-item" style={{
+            "--i": si,
             background: "var(--card)", border: "1px solid var(--border)",
             borderRadius: "8px", padding: "14px 16px",
           }}>

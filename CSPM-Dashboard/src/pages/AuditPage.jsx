@@ -186,7 +186,7 @@ export default function AuditPage({ token, role }) {
                   display: "grid",
                   gridTemplateColumns: "160px 90px 120px 180px 1fr 110px",
                   gap: "0 16px", padding: "10px 0",
-                  borderBottom: "1px solid rgba(255,255,255,0.04)",
+                  borderBottom: "1px solid rgba(0,0,0,0.04)",
                   alignItems: "center",
                 }}>
                   <span style={{ fontSize: 11, color: "var(--accent3)", fontFamily: "var(--font-mono)" }}>

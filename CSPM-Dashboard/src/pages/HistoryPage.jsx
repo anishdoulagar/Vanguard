@@ -151,8 +151,9 @@ export default function HistoryPage({ token, role }) {
             color: totalCritical > 0 ? "var(--red)" : "var(--green)" },
           { label:"LATEST CLOUD",   value: (latestScan?.cloud || "—").toUpperCase(),
             color:"var(--accent2)" },
-        ].map(s => (
-          <div key={s.label} style={{
+        ].map((s, si) => (
+          <div key={s.label} className="card-lift stagger-item" style={{
+            "--i": si,
             background:"var(--card)", border:"1px solid var(--border)",
             borderRadius:"8px", padding:"16px",
           }}>
@@ -166,9 +167,12 @@ export default function HistoryPage({ token, role }) {
 
       {/* Trend Chart */}
       {scans.length > 1 && (
-        <div style={{ background:"var(--card)", border:"1px solid var(--border)",
-                      borderRadius:"10px", padding:"20px 24px",
-                      marginBottom:"24px" }}>
+        <div className="card-lift stagger-item" style={{
+          "--i": 4,
+          background:"var(--card)", border:"1px solid var(--border)",
+          borderRadius:"10px", padding:"20px 24px",
+          marginBottom:"24px",
+        }}>
           <div style={{ color:"var(--accent3)", fontSize:"11px",
                         letterSpacing:"0.1em", marginBottom:"16px",
                         fontFamily:"var(--font-ui)", fontWeight:600 }}>
@@ -270,7 +274,7 @@ export default function HistoryPage({ token, role }) {
           const trigger = scan.triggered_by === "schedule" ? "⏱" : "";
 
           return (
-            <div key={scan.id || i} style={{ borderTop:"1px solid var(--border)" }}>
+            <div key={scan.id || i} className="stagger-item" style={{ "--i": i % 10, borderTop:"1px solid var(--border)", animation: i < 10 ? undefined : "none" }}>
               <div
                 onClick={async () => {
                   if (isOpen) { setSelected(null); return; }
@@ -295,7 +299,7 @@ export default function HistoryPage({ token, role }) {
                   background: isOpen ? "rgba(232,232,232,0.03)" : "transparent",
                   transition:"background 0.15s",
                 }}
-                onMouseEnter={e => !isOpen && (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
+                onMouseEnter={e => !isOpen && (e.currentTarget.style.background = "var(--surface)")}
                 onMouseLeave={e => !isOpen && (e.currentTarget.style.background = "transparent")}
               >
                 <span style={{ fontFamily:"var(--font-mono)", fontSize:"12px",
@@ -410,7 +414,7 @@ export default function HistoryPage({ token, role }) {
                         {diff && (
                           <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10,
                                         padding:"8px 12px", borderRadius:6,
-                                        background:"rgba(255,255,255,0.03)",
+                                        background:"var(--surface)",
                                         border:"1px solid var(--border)" }}>
                             {diff.new_count > 0 && (
                               <span style={{ color:"#ff2255", fontSize:12,
@@ -463,7 +467,7 @@ export default function HistoryPage({ token, role }) {
                             ) : findings.map((f, fi) => (
                               <div key={fi} style={{ padding:"6px 10px", marginBottom:4,
                                 border:`1px solid ${SEV_C[f.severity] || "#888"}22`,
-                                borderRadius:5, background:"rgba(255,255,255,0.02)" }}>
+                                borderRadius:5, background:"var(--surface)" }}>
                                 <span style={{ color:SEV_C[f.severity]||"#888", fontSize:10,
                                                fontFamily:"var(--font-ui)", fontWeight:700,
                                                minWidth:70, display:"inline-block" }}>

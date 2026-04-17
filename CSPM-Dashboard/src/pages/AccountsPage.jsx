@@ -38,7 +38,7 @@ function TeamBadge({ teamName }) {
     <span style={{
       padding: "2px 7px", borderRadius: 4, fontSize: 9, fontWeight: 700,
       fontFamily: "var(--font-ui)", letterSpacing: "0.06em",
-      background: "rgba(0,113,227,0.08)", border: "1px solid rgba(0,113,227,0.25)",
+      background: "rgba(0,0,0,0.08)", border: "1px solid rgba(0,0,0,0.25)",
       color: "var(--cyan)",
     }}>⬡ {teamName}</span>
   );
@@ -142,7 +142,7 @@ function ThreeDotMenu({ onEdit, onDelete }) {
               fontSize: "12px", fontWeight: 600, textAlign: "left",
               letterSpacing: "0.06em",
             }}
-            onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.05)"}
+            onMouseEnter={e => e.target.style.background = "rgba(0,0,0,0.04)"}
             onMouseLeave={e => e.target.style.background = "transparent"}
             >✎ EDIT</button>
             <div style={{ height: "1px", background: "var(--border)" }} />
@@ -280,7 +280,7 @@ function AddAccountModal({ token, userRole, onClose, onAdded }) {
         )}
         {teams.length === 1 && (
           <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 6,
-            background: "rgba(0,113,227,0.06)", border: "1px solid rgba(0,113,227,0.15)" }}>
+            background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}>
             <span style={{ fontSize: 11, color: "var(--accent3)" }}>Team: </span>
             <span style={{ fontSize: 11, fontWeight: 600, color: "var(--cyan)" }}>{teams[0].name}</span>
           </div>
@@ -581,12 +581,12 @@ function AccountCard({ account, token, role, scanningBy, onDelete, onScanComplet
   const isActivelyScanning = scanning || isExternallyScanning;
 
   return (
-    <div style={{
+    <div className="card-lift" style={{
       background: "var(--card)", border: "1px solid var(--border)",
       borderRadius: "10px", padding: "20px",
       borderLeft: `3px solid ${account.cloud === "aws" ? "#ff9900" : "#0089d6"}`,
-      transition: "border-color 0.2s",
-      ...(isActivelyScanning && { borderColor: "rgba(0,113,227,0.5)" }),
+      transition: "border-color 0.2s, transform 0.22s cubic-bezier(0.23,1,0.32,1), box-shadow 0.22s cubic-bezier(0.23,1,0.32,1)",
+      ...(isActivelyScanning && { borderColor: "rgba(0,0,0,0.5)" }),
     }}>
       {showEdit && (
         <EditAccountModal account={account} token={token}
@@ -904,12 +904,14 @@ export default function AccountsPage({ token, role, user, onScanComplete }) {
               </div>
               <div style={{ display:"grid",
                 gridTemplateColumns:"repeat(auto-fill, minmax(340px, 1fr))", gap:"16px" }}>
-                {grouped[cat].map(account => (
-                  <AccountCard key={account.id} account={account} token={token} role={role}
-                    scanningBy={scanningMap[String(account.id)] || null}
-                    onDelete={id => setAccounts(prev => prev.filter(a => a.id !== id))}
-                    onUpdate={u  => setAccounts(prev => prev.map(a => a.id===u.id ? {...a,...u} : a))}
-                    onScanComplete={onScanComplete} />
+                {grouped[cat].map((account, ai) => (
+                  <div key={account.id} className="stagger-item" style={{ "--i": ai }}>
+                    <AccountCard account={account} token={token} role={role}
+                      scanningBy={scanningMap[String(account.id)] || null}
+                      onDelete={id => setAccounts(prev => prev.filter(a => a.id !== id))}
+                      onUpdate={u  => setAccounts(prev => prev.map(a => a.id===u.id ? {...a,...u} : a))}
+                      onScanComplete={onScanComplete} />
+                  </div>
                 ))}
               </div>
             </div>
