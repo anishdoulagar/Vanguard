@@ -19,19 +19,26 @@ load_env()
 # ── Read suffix ───────────────────────────────────────────────────────────────
 suffix = vpc_id = subnet_id = igw_id = account_id = region = None
 
+SCRIPTS = pathlib.Path(__file__).parent
+TEAM = None
+if "--team" in sys.argv:
+    TEAM = sys.argv[sys.argv.index("--team") + 1]
+
+suffix_filename = f".aws_demo_suffix_{TEAM}" if TEAM else ".aws_demo_suffix"
+
 if "--suffix" in sys.argv:
     suffix = sys.argv[sys.argv.index("--suffix") + 1]
     region = "us-east-1"
     account_id = boto3.client("sts").get_caller_identity()["Account"]
 else:
     try:
-        lines = open("demo_infra/.aws_demo_suffix").read().strip().split("\n")
+        lines = (SCRIPTS / suffix_filename).read_text().strip().split("\n")
         suffix, account_id, region = lines[0], lines[1], lines[2]
         vpc_id = lines[3] if len(lines) > 3 else None
         subnet_id = lines[4] if len(lines) > 4 else None
         igw_id = lines[5] if len(lines) > 5 else None
     except FileNotFoundError:
-        print("ERROR: No .aws_demo_suffix file found. Use --suffix <suffix>")
+        print(f"ERROR: No {suffix_filename} file found. Use --suffix <suffix> or --team <team>")
         sys.exit(1)
 
 print(f"Cleaning up cspm-demo resources with suffix: {suffix}")
@@ -100,19 +107,22 @@ try:
 except Exception as e:
     err(f"EC2 termination: {e}")
 
-# Security groups
+# Security groups — delete by tag so naming convention changes don't break cleanup
 print("\nDeleting security groups...")
-for sg_name in [f"cspm-demo-open-ssh-{suffix}", f"cspm-demo-open-rdp-{suffix}",
-                f"cspm-demo-open-all-{suffix}"]:
-    try:
-        sgs = ec2c.describe_security_groups(
-            Filters=[{"Name": "group-name", "Values": [sg_name]}]
-        )["SecurityGroups"]
-        for sg in sgs:
-            ec2c.delete_security_group(GroupId=sg["GroupId"])
-            ok(f"Deleted SG: {sg_name} ({sg['GroupId']})")
-    except Exception as e:
-        err(f"SG {sg_name}: {e}")
+try:
+    all_sgs = ec2c.describe_security_groups(
+        Filters=[{"Name": "tag:project", "Values": ["cspm-demo"]}]
+    )["SecurityGroups"]
+    for sg in all_sgs:
+        sg_name = sg.get("GroupName", "")
+        if suffix in sg_name or (vpc_id and sg.get("VpcId") == vpc_id):
+            try:
+                ec2c.delete_security_group(GroupId=sg["GroupId"])
+                ok(f"Deleted SG: {sg_name} ({sg['GroupId']})")
+            except Exception as e:
+                err(f"SG {sg_name}: {e}")
+except Exception as e:
+    err(f"SG list: {e}")
 
 # CloudTrail
 print("\nDeleting CloudTrail...")

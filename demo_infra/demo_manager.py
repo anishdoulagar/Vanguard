@@ -8,18 +8,30 @@ then tears them down cleanly so you are not charged for idle resources.
 SETUP (one time):
   cp demo_infra/.env.example demo_infra/.env
   # Fill in your Azure / AWS credentials in demo_infra/.env
+  # Also fill in VANGUARD_API_URL, VANGUARD_ADMIN_USERNAME, VANGUARD_ADMIN_PASSWORD
 
 USAGE:
-  python3 demo_infra/demo_manager.py deploy azure     # ~5 min
-  python3 demo_infra/demo_manager.py deploy aws       # ~3 min
-  python3 demo_infra/demo_manager.py status           # list running resources
-  python3 demo_infra/demo_manager.py destroy azure    # delete all Azure demo resources
-  python3 demo_infra/demo_manager.py destroy aws      # delete all AWS demo resources
+  python3 demo_infra/demo_manager.py demo              # Full demo: 3 teams × 2 clouds + Vanguard provisioning (~20 min)
+  python3 demo_infra/demo_manager.py demo-destroy      # Tear everything down after presentation
+
+  python3 demo_infra/demo_manager.py deploy azure      # Single Azure env (vulnerable profile) ~5 min
+  python3 demo_infra/demo_manager.py deploy aws        # Single AWS env (vulnerable profile) ~3 min
+  python3 demo_infra/demo_manager.py status            # List running resources
+  python3 demo_infra/demo_manager.py destroy azure     # Delete single Azure demo
+  python3 demo_infra/demo_manager.py destroy aws       # Delete single AWS demo
+
+DEMO COMMAND DETAILS:
+  'demo' deploys 6 environments across 3 teams with different security postures:
+    Team Alpha  (secure)     → expected CSPM score ~85–95
+    Team Beta   (moderate)   → expected CSPM score ~60–72
+    Team Gamma  (vulnerable) → expected CSPM score ~25–40
+  Then provisions Vanguard with teams, users (alice/bob/carol/dave/eve/frank),
+  and cloud accounts, and triggers initial scans.
 
 COST:
-  Azure: ~$0.05/hour (Standard_B1s VM + SQL Server DTU)
-  AWS:   ~$0.01/hour (EC2 t2.micro; everything else is free-tier)
-  Destroy immediately after testing to avoid charges.
+  Full demo:  ~$0.03–0.05/hour (1 EC2 + 2 SQL Servers + 1 Azure VM for Gamma only)
+  Single env: Azure ~$0.05/hour, AWS ~$0.01/hour
+  Destroy immediately after the presentation to avoid charges.
 """
 
 import os, sys, subprocess, pathlib
@@ -171,10 +183,30 @@ def cmd_status():
     print()
 
 
+def cmd_demo_full():
+    load_env()
+    banner("FULL DEMO DEPLOYMENT — 3 TEAMS × 2 CLOUDS")
+    print(f"  {YELLOW}→{RESET}  This deploys 6 cloud environments and provisions Vanguard.")
+    print(f"  {YELLOW}→{RESET}  Expected time: 15–25 minutes.")
+    print(f"  {YELLOW}→{RESET}  Expected cost: ~$0.03–0.05/hour while running.\n")
+    run_script("demo_full.py")
+
+
+def cmd_demo_destroy():
+    load_env()
+    banner("FULL DEMO TEARDOWN")
+    print(f"  {RED}→{RESET}  This destroys ALL demo cloud resources and Vanguard demo data.\n")
+    run_script("demo_destroy_all.py", ["--yes"])
+
+
 # ── Dispatch ──────────────────────────────────────────────────────────────────
 args = sys.argv[1:]
 
-if len(args) == 2 and args[0] == "deploy":
+if len(args) == 1 and args[0] == "demo":
+    cmd_demo_full()
+elif len(args) == 1 and args[0] == "demo-destroy":
+    cmd_demo_destroy()
+elif len(args) == 2 and args[0] == "deploy":
     cmd_deploy(args[1])
 elif len(args) == 2 and args[0] == "destroy":
     cmd_destroy(args[1])

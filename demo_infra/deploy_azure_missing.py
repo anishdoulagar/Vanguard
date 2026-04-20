@@ -1,6 +1,10 @@
 """
 Adds Key Vault, SQL Server, and VM to the existing demo resource group.
 Fixes: provider registration, Standard SKU public IP.
+
+Usage:
+  python3 deploy_azure_missing.py [--team alpha|beta|gamma]
+  python3 deploy_azure_missing.py --suffix <suffix>
 """
 
 import os, sys, time, pathlib
@@ -20,19 +24,25 @@ TENANT_ID       = os.environ.get("AZURE_TENANT_ID")
 CLIENT_ID       = os.environ.get("AZURE_CLIENT_ID")
 CLIENT_SECRET   = os.environ.get("AZURE_CLIENT_SECRET")
 SUBSCRIPTION_ID = os.environ.get("AZURE_SUBSCRIPTION_ID")
-LOCATION        = "eastus"
+LOCATION        = "eastus2"
 
-# ── read suffix from file written by deploy_vulnerable_azure.py ───────────────
-_suffix_file = pathlib.Path(__file__).parent / ".azure_demo_suffix"
+# ── resolve suffix file (team-scoped or default) ──────────────────────────────
+SCRIPTS = pathlib.Path(__file__).parent
+TEAM = None
+if "--team" in sys.argv:
+    TEAM = sys.argv[sys.argv.index("--team") + 1]
+
+_suffix_file = SCRIPTS / (f".azure_demo_suffix_{TEAM}" if TEAM else ".azure_demo_suffix")
+
 if _suffix_file.exists():
     _lines   = _suffix_file.read_text().strip().split("\n")
     SUFFIX   = _lines[0]
     RG_NAME  = _lines[2] if len(_lines) > 2 else f"cspm-demo-rg-{_lines[0]}"
 elif "--suffix" in sys.argv:
     SUFFIX  = sys.argv[sys.argv.index("--suffix") + 1]
-    RG_NAME = f"cspm-demo-rg-{SUFFIX}"
+    RG_NAME = sys.argv[sys.argv.index("--rg") + 1] if "--rg" in sys.argv else f"cspm-demo-rg-{SUFFIX}"
 else:
-    print("ERROR: Run deploy_vulnerable_azure.py first, or pass --suffix <suffix>")
+    print("ERROR: Run deploy_vulnerable_azure.py first, or pass --suffix <suffix> [--rg <rg>]")
     sys.exit(1)
 TENANT_ID_VAL = TENANT_ID
 
@@ -163,7 +173,7 @@ try:
     vm_poller = cmc.virtual_machines.begin_create_or_update(RG_NAME, vm_name, {
         "location": LOCATION,
         "tags": TAGS,
-        "hardware_profile": {"vm_size": "Standard_B1s"},
+        "hardware_profile": {"vm_size": "Standard_B2s"},
         "storage_profile": {
             "image_reference": {
                 "publisher": "Canonical",
@@ -190,7 +200,7 @@ try:
         },
     })
     vm = vm_poller.result()
-    ok(f"VM '{vm_name}' (Standard_B1s): no disk encryption, password auth  → AZ-VM-001..007 (HIGH/MEDIUM)")
+    ok(f"VM '{vm_name}' (Standard_B2s): no disk encryption, password auth  → AZ-VM-001..007 (HIGH/MEDIUM)")
     info("  ⚠  Remember to run cleanup after the demo")
 
 except HttpResponseError as e:

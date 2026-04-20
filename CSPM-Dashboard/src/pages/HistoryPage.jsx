@@ -7,24 +7,28 @@ import {
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const SEV_COLOR = {
-  CRITICAL: "#e05555", HIGH: "#d97b3a",
-  MEDIUM:   "#c9a84c", LOW:  "#4caf7d",
+  CRITICAL: "#b54545", HIGH: "#b06c2a",
+  MEDIUM:   "#9a7d18", LOW:  "#3a8a60",
+};
+const SEV_BG = {
+  CRITICAL: "rgba(181,69,69,0.08)",
+  HIGH:     "rgba(176,108,42,0.08)",
+  MEDIUM:   "rgba(154,125,24,0.08)",
+  LOW:      "rgba(58,138,96,0.08)",
 };
 
 function scoreColor(s) {
-  if (s >= 80) return "#4caf7d";
-  if (s >= 60) return "#c9a84c";
-  if (s >= 40) return "#d97b3a";
-  return "#e05555";
+  if (s >= 80) return "#3a8a60";
+  if (s >= 60) return "#9a7d18";
+  if (s >= 40) return "#b06c2a";
+  return "#b54545";
 }
-
 function scoreLabel(s) {
-  if (s >= 80) return "LOW";
-  if (s >= 60) return "MED";
-  if (s >= 40) return "HIGH";
-  return "CRIT";
+  if (s >= 80) return "Low";
+  if (s >= 60) return "Med";
+  if (s >= 40) return "High";
+  return "Critical";
 }
-
 function fmtTs(isoStr) {
   if (!isoStr) return "—";
   try {
@@ -37,315 +41,440 @@ function fmtTs(isoStr) {
   }
 }
 
-export default function HistoryPage({ token, role }) {
-  const [scans,    setScans]    = useState([]);
-  const [loading,      setLoading]    = useState(true);
-  const [error,        setError]      = useState(null);
-  const [selected,     setSelected]   = useState(null);
-  const [fullScans,    setFullScans]  = useState({});
-  const [diffTab,      setDiffTab]    = useState({});
-  const [scanSearch,   setScanSearch] = useState("");
-  const [cloudFilter,  setCloudFilter]= useState("all");
+const inputStyle = {
+  background: "#fff", border: "1px solid rgba(0,0,0,0.12)",
+  borderRadius: 6, padding: "7px 10px", color: "rgba(0,0,0,0.9)",
+  fontFamily: "var(--font-ui)", fontSize: 12,
+  letterSpacing: "-0.006em", outline: "none",
+  transition: "border-color 0.15s, box-shadow 0.15s",
+};
 
+function SevChip({ label, active, onClick }) {
+  const c = SEV_COLOR[label] || "#a39e98";
+  const bg = SEV_BG[label]  || "rgba(0,0,0,0.05)";
+  return (
+    <button onClick={onClick} style={{
+      padding: "4px 10px", borderRadius: 9999, fontSize: 10, fontWeight: 700,
+      fontFamily: "var(--font-ui)", letterSpacing: "0.04em",
+      cursor: "pointer", transition: "all 0.12s",
+      background: active ? bg      : "transparent",
+      border:     active ? `1px solid ${c}50` : "1px solid rgba(0,0,0,0.1)",
+      color:      active ? c       : "#a39e98",
+    }}>{label}</button>
+  );
+}
+
+function CloudChip({ label, active, onClick }) {
+  const clr = label === "all" ? "#4b7bc9" : label === "aws" ? "#b87a2a" : "#3a7ab0";
+  return (
+    <button onClick={onClick} style={{
+      padding: "4px 10px", borderRadius: 9999, fontSize: 10, fontWeight: 700,
+      fontFamily: "var(--font-ui)", letterSpacing: "0.04em",
+      cursor: "pointer", transition: "all 0.12s",
+      background: active ? `${clr}14` : "transparent",
+      border:     active ? `1px solid ${clr}50` : "1px solid rgba(0,0,0,0.1)",
+      color:      active ? clr       : "#a39e98",
+    }}>{label === "all" ? "All clouds" : label.toUpperCase()}</button>
+  );
+}
+
+export default function HistoryPage({ token, role }) {
+  const [scans,        setScans]       = useState([]);
+  const [loading,      setLoading]     = useState(true);
+  const [error,        setError]       = useState(null);
+  const [selected,     setSelected]    = useState(null);
+  const [fullScans,    setFullScans]   = useState({});
+  const [diffTab,      setDiffTab]     = useState({});
+
+  // ── Filters ─────────────────────────────────────────────────────────────────
+  const [dateFrom,      setDateFrom]      = useState("");
+  const [dateTo,        setDateTo]        = useState("");
+  const [cloudFilter,   setCloudFilter]   = useState("all");
+  const [accountFilter, setAccountFilter] = useState("all");
+  const [scanSearch,    setScanSearch]    = useState("");
+  const [sevFilter,     setSevFilter]     = useState(new Set()); // client-side
+
+
+  // ── Fetch — re-fires when server-side filters change ────────────────────────
   useEffect(() => {
-    async function fetchScans() {
+    let cancelled = false;
+    async function load() {
+      setLoading(true); setError(null);
       try {
-        const res  = await fetch(`${API}/scans?limit=30`, {
-          headers: { "Authorization": `Bearer ${token}` },
+        const p = new URLSearchParams({ limit: "200" });
+        if (dateFrom)               p.set("date_from", dateFrom);
+        if (dateTo)                 p.set("date_to",   dateTo);
+        if (cloudFilter !== "all")  p.set("cloud",     cloudFilter);
+        if (accountFilter !== "all") p.set("account_id", accountFilter);
+
+        const res = await fetch(`${API}/scans?${p}`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
+        if (cancelled) return;
         if (res.ok) {
           const data = await res.json();
           setScans(data.scans || []);
+          setSelected(null);
         } else {
           const data = await res.json().catch(() => ({}));
           setError(data.detail || "Failed to load scan history.");
         }
       } catch {
-        setError("Cannot reach the backend server. Please check your connection.");
+        if (!cancelled) setError("Cannot reach the backend server.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      finally { setLoading(false); }
     }
-    fetchScans();
-  }, [token]);
+    load();
+    return () => { cancelled = true; };
+  }, [token, dateFrom, dateTo, cloudFilter, accountFilter]);
 
-  // ── Loading ────────────────────────────────────────────────────────────────
-  if (loading) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                  height:"60vh", flexDirection:"column", gap:"16px" }}>
-      <div style={{ width:"28px", height:"28px", border:"2px solid var(--border)",
-                    borderTop:"2px solid var(--accent)", borderRadius:"50%",
-                    animation:"spin 0.8s linear infinite" }} />
-      <span style={{ color:"var(--accent3)", fontFamily:"var(--font-mono)",
-                     fontSize:"12px", letterSpacing:"0.1em" }}>
-        LOADING HISTORY...
-      </span>
-    </div>
-  );
+  // ── Derived data ─────────────────────────────────────────────────────────────
+  const uniqueAccounts = [...new Map(
+    scans.filter(s => s.account_id && s.account_name)
+      .map(s => [s.account_id, { id: s.account_id, name: s.account_name }])
+  ).values()];
 
-  // ── Error ──────────────────────────────────────────────────────────────────
-  if (error) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                  height:"60vh", flexDirection:"column", gap:"12px" }}>
-      <div style={{ color:"#e05555", fontFamily:"var(--font-display)",
-                    fontSize:"16px", fontWeight:700 }}>⚠ HISTORY UNAVAILABLE</div>
-      <div style={{ color:"var(--accent3)", fontSize:"13px", fontFamily:"var(--font-mono)",
-                    textAlign:"center", maxWidth:"420px" }}>{error}</div>
-    </div>
-  );
-
-  // ── Empty ──────────────────────────────────────────────────────────────────
-  if (scans.length === 0) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                  height:"60vh", flexDirection:"column", gap:"12px" }}>
-      <div style={{ color:"var(--accent)", fontFamily:"var(--font-display)",
-                    fontSize:"16px", fontWeight:700 }}>NO SCAN HISTORY</div>
-      <div style={{ color:"var(--accent3)", fontSize:"13px" }}>
-        Run your first scan to see results here.
-      </div>
-    </div>
-  );
-
-  // ── Build chart data ───────────────────────────────────────────────────────
-  const chartData = [...scans].reverse().map(scan => {
-    const scores = scan.scores || {};
-    return {
-      name:    fmtTs(scan.created_at),
-      account: scan.account_name || "Ad-hoc",
-      overall: scores.overall,
-      aws:     scores.aws,
-      azure:   scores.azure,
-    };
+  const displayedScans = scans.filter(scan => {
+    if (scanSearch && !(scan.account_name || "").toLowerCase().includes(scanSearch.toLowerCase())) return false;
+    if (sevFilter.size > 0) {
+      const fc = scan.finding_counts || {};
+      const hasMatch = [...sevFilter].some(sev => (fc[sev.toLowerCase()] || 0) > 0);
+      if (!hasMatch) return false;
+    }
+    return true;
   });
 
+  const chartData = [...scans].reverse().map(scan => ({
+    name:    fmtTs(scan.created_at),
+    account: scan.account_name || "Ad-hoc",
+    overall: (scan.scores || {}).overall,
+    aws:     (scan.scores || {}).aws,
+    azure:   (scan.scores || {}).azure,
+  }));
   const hasAWS     = chartData.some(d => d.aws    != null);
   const hasAzure   = chartData.some(d => d.azure  != null);
   const hasOverall = chartData.some(d => d.overall != null);
 
-  // Aggregate stats
   const totalScans    = scans.length;
   const latestScan    = scans[0];
   const latestScore   = latestScan
     ? (latestScan.scores?.overall ?? latestScan.scores?.aws ?? latestScan.scores?.azure)
     : null;
-  const totalCritical = scans.reduce((acc, s) =>
-    acc + (s.finding_counts?.critical || 0), 0);
+  const totalCritical = scans.reduce((a, s) => a + (s.finding_counts?.critical || 0), 0);
 
+
+  // ── Loading / error / empty ──────────────────────────────────────────────────
+  if (loading) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                  height:"60vh", gap:10, color:"#a39e98",
+                  fontFamily:"var(--font-ui)", fontSize:13 }}>
+      <span style={{ width:13, height:13, borderRadius:"50%", display:"inline-block",
+                     border:"2px solid rgba(0,0,0,0.1)", borderTopColor:"#4b7bc9",
+                     animation:"spin 0.7s linear infinite" }} />
+      Loading history…
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                  height:"60vh", flexDirection:"column", gap:12 }}>
+      <div style={{ color:"#b54545", fontFamily:"var(--font-ui)", fontSize:14, fontWeight:600 }}>
+        History unavailable
+      </div>
+      <div style={{ color:"#a39e98", fontSize:13, fontFamily:"var(--font-ui)",
+                    textAlign:"center", maxWidth:420 }}>{error}</div>
+    </div>
+  );
+
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding:"32px", maxWidth:"1200px", margin:"0 auto",
-                  animation:"fadeIn 0.3s ease" }}>
+    <div style={{ padding:"28px 32px 60px", maxWidth:1100, margin:"0 auto",
+                  animation:"floatIn 0.28s cubic-bezier(0.23,1,0.32,1) both" }}>
 
       {/* Header */}
-      <h1 style={{ fontFamily:"var(--font-display)", fontSize:"22px", fontWeight:700,
-                   color:"var(--accent)", letterSpacing:"0.05em",
-                   marginBottom:"24px" }}>SCAN HISTORY</h1>
-
-      {/* Stat Cards */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
-                    gap:"12px", marginBottom:"24px" }}>
-        {[
-          { label:"TOTAL SCANS",    value: totalScans,
-            color:"var(--accent)" },
-          { label:"LATEST SCORE",   value: latestScore,
-            color: latestScore != null ? scoreColor(latestScore) : "var(--accent3)" },
-          { label:"TOTAL CRITICAL", value: totalCritical,
-            color: totalCritical > 0 ? "var(--red)" : "var(--green)" },
-          { label:"LATEST CLOUD",   value: (latestScan?.cloud || "—").toUpperCase(),
-            color:"var(--accent2)" },
-        ].map((s, si) => (
-          <div key={s.label} className="card-lift stagger-item" style={{
-            "--i": si,
-            background:"var(--card)", border:"1px solid var(--border)",
-            borderRadius:"8px", padding:"16px",
-          }}>
-            <div style={{ fontFamily:"var(--font-display)", fontSize:"28px",
-                          fontWeight:700, color:s.color }}>{s.value ?? "—"}</div>
-            <div style={{ color:"var(--accent3)", fontSize:"10px",
-                          letterSpacing:"0.1em", marginTop:"3px" }}>{s.label}</div>
-          </div>
-        ))}
+      <div style={{ marginBottom:24 }}>
+        <h1 style={{ fontFamily:"var(--font-display)", fontSize:22, fontWeight:700,
+                     color:"rgba(0,0,0,0.9)", letterSpacing:"-0.03em",
+                     margin:0, lineHeight:1.2 }}>Scan History</h1>
+        <p style={{ color:"#a39e98", fontSize:13, marginTop:4, margin:0,
+                    fontFamily:"var(--font-ui)", letterSpacing:"-0.006em" }}>
+          Showing {displayedScans.length} of {totalScans} scans for your team's accounts
+        </p>
       </div>
 
-      {/* Trend Chart */}
+      {/* ── Stat cards ─────────────────────────────────────────────────────────── */}
+      {scans.length > 0 && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
+                      gap:12, marginBottom:20 }}>
+          {[
+            { label:"Total Scans",    value: totalScans,
+              color: "rgba(0,0,0,0.9)" },
+            { label:"Latest Score",   value: latestScore != null ? latestScore : "—",
+              color: latestScore != null ? scoreColor(latestScore) : "#a39e98" },
+            { label:"Total Critical", value: totalCritical,
+              color: totalCritical > 0 ? "#b54545" : "#3a8a60" },
+            { label:"Latest Cloud",   value: (latestScan?.cloud || "—").toUpperCase(),
+              color: latestScan?.cloud === "aws" ? "#b87a2a" : "#3a7ab0" },
+          ].map((s, i) => (
+            <div key={s.label} style={{
+              background:"#fff", border:"1px solid rgba(0,0,0,0.09)",
+              borderRadius:10, padding:"14px 16px",
+              boxShadow:"rgba(0,0,0,0.03) 0px 2px 8px",
+            }}>
+              <div style={{ fontFamily:"var(--font-display)", fontSize:26,
+                            fontWeight:700, color:s.color, lineHeight:1 }}>{s.value}</div>
+              <div style={{ color:"#a39e98", fontSize:10, letterSpacing:"0.04em",
+                            marginTop:4, fontFamily:"var(--font-ui)",
+                            textTransform:"uppercase" }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Trend chart ────────────────────────────────────────────────────────── */}
       {scans.length > 1 && (
-        <div className="card-lift stagger-item" style={{
-          "--i": 4,
-          background:"var(--card)", border:"1px solid var(--border)",
-          borderRadius:"10px", padding:"20px 24px",
-          marginBottom:"24px",
+        <div style={{
+          background:"#fff", border:"1px solid rgba(0,0,0,0.09)",
+          borderRadius:10, padding:"18px 22px", marginBottom:20,
+          boxShadow:"rgba(0,0,0,0.03) 0px 2px 8px",
         }}>
-          <div style={{ color:"var(--accent3)", fontSize:"11px",
-                        letterSpacing:"0.1em", marginBottom:"16px",
-                        fontFamily:"var(--font-ui)", fontWeight:600 }}>
-            RISK SCORE TREND
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
+          <div style={{ fontFamily:"var(--font-ui)", fontSize:11, fontWeight:600,
+                        color:"#a39e98", letterSpacing:"0.04em", textTransform:"uppercase",
+                        marginBottom:14 }}>Risk score trend</div>
+          <ResponsiveContainer width="100%" height={180}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e2026" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
               <XAxis dataKey="name"
-                tick={{ fill:"#606068", fontSize:10, fontFamily:"var(--font-ui)" }}
+                tick={{ fill:"#a39e98", fontSize:10, fontFamily:"var(--font-ui)" }}
                 axisLine={false} tickLine={false} />
               <YAxis domain={[0,100]}
-                tick={{ fill:"#606068", fontSize:11 }}
+                tick={{ fill:"#a39e98", fontSize:10, fontFamily:"var(--font-ui)" }}
                 axisLine={false} tickLine={false} />
               <Tooltip
-                contentStyle={{ background:"#18191d", border:"1px solid #2a2d35",
-                                borderRadius:"6px" }}
-                labelStyle={{ color:"#e8e8e8", fontFamily:"var(--font-ui)" }}
+                contentStyle={{ background:"#fff", border:"1px solid rgba(0,0,0,0.1)",
+                                borderRadius:6, fontFamily:"var(--font-ui)", fontSize:12 }}
+                labelStyle={{ color:"rgba(0,0,0,0.7)", fontFamily:"var(--font-ui)" }}
               />
-              <Legend wrapperStyle={{ fontFamily:"var(--font-ui)", fontSize:"12px",
-                                      color:"var(--accent2)" }} />
+              <Legend wrapperStyle={{ fontFamily:"var(--font-ui)", fontSize:12, color:"#a39e98" }} />
               {hasAWS    && <Line type="monotone" dataKey="aws"
-                name="AWS" stroke="#ff9900" strokeWidth={2}
-                dot={{ r:3 }} connectNulls />}
+                name="AWS" stroke="#b87a2a" strokeWidth={2} dot={{ r:3 }} connectNulls />}
               {hasAzure  && <Line type="monotone" dataKey="azure"
-                name="Azure" stroke="#0089d6" strokeWidth={2}
-                dot={{ r:3 }} connectNulls />}
+                name="Azure" stroke="#3a7ab0" strokeWidth={2} dot={{ r:3 }} connectNulls />}
               {hasOverall && <Line type="monotone" dataKey="overall"
-                name="Overall" stroke="#e8e8e8" strokeWidth={2}
+                name="Overall" stroke="#4b7bc9" strokeWidth={2}
                 dot={{ r:3 }} strokeDasharray="4 2" connectNulls />}
             </LineChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      {/* Scan Log */}
-      <div style={{ background:"var(--card)", border:"1px solid var(--border)",
-                    borderRadius:"10px", overflow:"hidden" }}>
-        <div style={{ padding:"12px 20px", borderBottom:"1px solid var(--border)",
-                      display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-          <span style={{ color:"var(--accent)", fontFamily:"var(--font-display)",
-                         fontSize:"14px", fontWeight:700, letterSpacing:"0.05em" }}>
-            SCAN LOG
-          </span>
-          <input
-            value={scanSearch}
-            onChange={e => setScanSearch(e.target.value)}
-            placeholder="Search account..."
-            style={{
-              background:"var(--surface)", border:"1px solid var(--border)",
-              borderRadius:5, padding:"5px 10px", color:"var(--accent)",
-              fontFamily:"var(--font-mono)", fontSize:11, width:160, marginLeft:"auto",
-            }}
-          />
-          <div style={{ display:"flex", gap:4 }}>
-            {["all","aws","azure"].map(c => (
-              <button key={c} onClick={() => setCloudFilter(c)} style={{
-                padding:"4px 10px", borderRadius:4, fontSize:10,
-                fontFamily:"var(--font-ui)", fontWeight:700, letterSpacing:"0.07em",
-                cursor:"pointer", border:"1px solid var(--border)",
-                background: cloudFilter === c ? "rgba(79,143,247,0.08)" : "transparent",
-                color: cloudFilter === c ? "var(--cyan)" : "var(--accent3)",
-                textTransform:"uppercase",
-              }}>{c === "all" ? "ALL" : c.toUpperCase()}</button>
-            ))}
+      {/* ── Scan log ───────────────────────────────────────────────────────────── */}
+      <div style={{ background:"#fff", border:"1px solid rgba(0,0,0,0.09)",
+                    borderRadius:10, overflow:"hidden",
+                    boxShadow:"rgba(0,0,0,0.03) 0px 2px 8px" }}>
+
+        {/* Filter bar */}
+        <div style={{ padding:"14px 18px", borderBottom:"1px solid rgba(0,0,0,0.07)",
+                      display:"flex", flexWrap:"wrap", gap:10, alignItems:"flex-end" }}>
+
+          {/* Date range */}
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <div>
+              <div style={{ fontFamily:"var(--font-ui)", fontSize:10, color:"#a39e98",
+                            letterSpacing:"0.04em", textTransform:"uppercase", marginBottom:4 }}>From</div>
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                style={{ ...inputStyle, width:130 }}
+                onFocus={e => { e.target.style.borderColor="#4b7bc9"; e.target.style.boxShadow="0 0 0 3px rgba(75,123,201,0.12)"; }}
+                onBlur={e  => { e.target.style.borderColor="rgba(0,0,0,0.12)"; e.target.style.boxShadow="none"; }}
+              />
+            </div>
+            <span style={{ color:"#a39e98", fontSize:12, marginTop:18 }}>—</span>
+            <div>
+              <div style={{ fontFamily:"var(--font-ui)", fontSize:10, color:"#a39e98",
+                            letterSpacing:"0.04em", textTransform:"uppercase", marginBottom:4 }}>To</div>
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                style={{ ...inputStyle, width:130 }}
+                onFocus={e => { e.target.style.borderColor="#4b7bc9"; e.target.style.boxShadow="0 0 0 3px rgba(75,123,201,0.12)"; }}
+                onBlur={e  => { e.target.style.borderColor="rgba(0,0,0,0.12)"; e.target.style.boxShadow="none"; }}
+              />
+            </div>
+            {(dateFrom || dateTo) && (
+              <button onClick={() => { setDateFrom(""); setDateTo(""); }} style={{
+                marginTop:18, padding:"5px 8px", borderRadius:5, fontSize:11,
+                fontFamily:"var(--font-ui)", cursor:"pointer",
+                border:"1px solid rgba(0,0,0,0.1)", background:"transparent",
+                color:"#a39e98", transition:"all 0.12s",
+              }}
+                onMouseEnter={e => e.currentTarget.style.color="#b54545"}
+                onMouseLeave={e => e.currentTarget.style.color="#a39e98"}
+              >✕</button>
+            )}
+          </div>
+
+          {/* Account dropdown */}
+          {uniqueAccounts.length > 1 && (
+            <div>
+              <div style={{ fontFamily:"var(--font-ui)", fontSize:10, color:"#a39e98",
+                            letterSpacing:"0.04em", textTransform:"uppercase", marginBottom:4 }}>Account</div>
+              <select value={accountFilter} onChange={e => setAccountFilter(e.target.value)}
+                style={{ ...inputStyle, paddingRight:28, cursor:"pointer" }}>
+                <option value="all">All accounts</option>
+                {uniqueAccounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Cloud filter */}
+          <div>
+            <div style={{ fontFamily:"var(--font-ui)", fontSize:10, color:"#a39e98",
+                          letterSpacing:"0.04em", textTransform:"uppercase", marginBottom:4 }}>Cloud</div>
+            <div style={{ display:"flex", gap:4 }}>
+              {["all","aws","azure"].map(c => (
+                <CloudChip key={c} label={c} active={cloudFilter === c}
+                  onClick={() => setCloudFilter(c)} />
+              ))}
+            </div>
+          </div>
+
+          {/* Severity filter (client-side) */}
+          <div>
+            <div style={{ fontFamily:"var(--font-ui)", fontSize:10, color:"#a39e98",
+                          letterSpacing:"0.04em", textTransform:"uppercase", marginBottom:4 }}>Severity</div>
+            <div style={{ display:"flex", gap:4 }}>
+              {["CRITICAL","HIGH","MEDIUM","LOW"].map(s => (
+                <SevChip key={s} label={s} active={sevFilter.has(s)}
+                  onClick={() => setSevFilter(prev => {
+                    const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n;
+                  })}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Search */}
+          <div style={{ marginLeft:"auto" }}>
+            <div style={{ fontFamily:"var(--font-ui)", fontSize:10, color:"#a39e98",
+                          letterSpacing:"0.04em", textTransform:"uppercase", marginBottom:4 }}>Search</div>
+            <input
+              value={scanSearch} onChange={e => setScanSearch(e.target.value)}
+              placeholder="Account name…"
+              style={{ ...inputStyle, width:150 }}
+              onFocus={e => { e.target.style.borderColor="#4b7bc9"; e.target.style.boxShadow="0 0 0 3px rgba(75,123,201,0.12)"; }}
+              onBlur={e  => { e.target.style.borderColor="rgba(0,0,0,0.12)"; e.target.style.boxShadow="none"; }}
+            />
           </div>
         </div>
 
         {/* Table header */}
         <div style={{
           display:"grid",
-          gridTemplateColumns:"170px 100px 70px 80px 60px 60px 60px 60px 100px",
-          gap:"10px", padding:"8px 20px",
-          background:"var(--surface)", fontSize:"10px",
-          color:"var(--accent3)", letterSpacing:"0.1em",
-          fontFamily:"var(--font-ui)", fontWeight:600,
-          borderBottom:"1px solid var(--border)",
+          gridTemplateColumns:"170px 140px 70px 70px 60px 60px 60px 60px 100px",
+          gap:8, padding:"8px 18px",
+          background:"#f6f5f4", borderBottom:"1px solid rgba(0,0,0,0.07)",
+          fontFamily:"var(--font-ui)", fontSize:10, fontWeight:600,
+          color:"#a39e98", letterSpacing:"0.04em", textTransform:"uppercase",
         }}>
-          <span>TIMESTAMP</span>
-          <span>ACCOUNT</span>
-          <span>CLOUD</span>
-          <span>SCORE</span>
-          <span style={{ color:SEV_COLOR.CRITICAL }}>CRIT</span>
-          <span style={{ color:SEV_COLOR.HIGH }}>HIGH</span>
-          <span style={{ color:SEV_COLOR.MEDIUM }}>MED</span>
-          <span style={{ color:SEV_COLOR.LOW }}>LOW</span>
-          <span>EXPORT</span>
+          <span>Timestamp</span><span>Account</span><span>Cloud</span><span>Score</span>
+          <span style={{ color:SEV_COLOR.CRITICAL }}>Crit</span>
+          <span style={{ color:SEV_COLOR.HIGH }}>High</span>
+          <span style={{ color:SEV_COLOR.MEDIUM }}>Med</span>
+          <span style={{ color:SEV_COLOR.LOW }}>Low</span>
+          <span>Export</span>
         </div>
 
-        {scans.filter(scan => {
-          if (cloudFilter !== "all" && scan.cloud !== cloudFilter) return false;
-          if (scanSearch && !(scan.account_name || "").toLowerCase().includes(scanSearch.toLowerCase())) return false;
-          return true;
-        }).map((scan, i) => {
-          const score  = scan.scores?.overall ?? scan.scores?.aws ?? scan.scores?.azure;
-          const fc     = scan.finding_counts || {};
-          const isOpen = selected === i;
-          const ts     = fmtTs(scan.created_at);
-          const trigger = scan.triggered_by === "schedule" ? "⏱" : "";
+        {/* Empty states */}
+        {scans.length === 0 && (
+          <div style={{ padding:"48px 20px", textAlign:"center", color:"#a39e98",
+                        fontFamily:"var(--font-ui)", fontSize:13 }}>
+            No scans found for this team.{" "}
+            {(dateFrom || dateTo || cloudFilter !== "all") &&
+              <button onClick={() => { setDateFrom(""); setDateTo(""); setCloudFilter("all"); setAccountFilter("all"); }} style={{
+                background:"none", border:"none", color:"#4b7bc9", cursor:"pointer",
+                fontFamily:"var(--font-ui)", fontSize:13, textDecoration:"underline",
+              }}>Clear filters</button>}
+          </div>
+        )}
+        {scans.length > 0 && displayedScans.length === 0 && (
+          <div style={{ padding:"32px 20px", textAlign:"center", color:"#a39e98",
+                        fontFamily:"var(--font-ui)", fontSize:13 }}>
+            No scans match your current filters.
+          </div>
+        )}
+
+        {/* Rows */}
+        {displayedScans.map((scan, i) => {
+          const score   = scan.scores?.overall ?? scan.scores?.aws ?? scan.scores?.azure;
+          const fc      = scan.finding_counts || {};
+          const isOpen  = selected === i;
+          const trigger = scan.triggered_by === "schedule" ? " ⏱" : "";
 
           return (
-            <div key={scan.id || i} className="stagger-item" style={{ "--i": i % 10, borderTop:"1px solid var(--border)", animation: i < 10 ? undefined : "none" }}>
+            <div key={scan.id || i} style={{ borderTop:"1px solid rgba(0,0,0,0.06)" }}>
               <div
                 onClick={async () => {
                   if (isOpen) { setSelected(null); return; }
                   setSelected(i);
-                  const sid = scan.id;
-                  if (sid && !fullScans[sid]) {
+                  if (scan.id && !fullScans[scan.id]) {
                     try {
-                      const r = await fetch(`${API}/scans/${sid}`, {
-                        headers: { "Authorization": `Bearer ${token}` },
+                      const r = await fetch(`${API}/scans/${scan.id}`, {
+                        headers: { Authorization: `Bearer ${token}` },
                       });
-                      if (r.ok) {
-                        const d = await r.json();
-                        setFullScans(p => ({ ...p, [sid]: d }));
-                      }
+                      if (r.ok) { const d = await r.json(); setFullScans(p => ({ ...p, [scan.id]: d })); }
                     } catch {}
                   }
                 }}
                 style={{
                   display:"grid",
-                  gridTemplateColumns:"170px 100px 70px 80px 60px 60px 60px 60px 100px",
-                  gap:"10px", padding:"12px 20px", cursor:"pointer",
-                  background: isOpen ? "rgba(232,232,232,0.03)" : "transparent",
-                  transition:"background 0.15s",
+                  gridTemplateColumns:"170px 140px 70px 70px 60px 60px 60px 60px 100px",
+                  gap:8, padding:"11px 18px", cursor:"pointer",
+                  background: isOpen ? "#f6f5f4" : i % 2 === 0 ? "#fff" : "rgba(0,0,0,0.01)",
+                  transition:"background 0.12s",
                 }}
-                onMouseEnter={e => !isOpen && (e.currentTarget.style.background = "var(--surface)")}
-                onMouseLeave={e => !isOpen && (e.currentTarget.style.background = "transparent")}
+                onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background="#f6f5f4"; }}
+                onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background= i%2===0?"#fff":"rgba(0,0,0,0.01)"; }}
               >
-                <span style={{ fontFamily:"var(--font-mono)", fontSize:"12px",
-                               color:"var(--accent2)" }}>
-                  {ts} {trigger}
+                <span style={{ fontFamily:"var(--font-ui)", fontSize:11, color:"#615d59", letterSpacing:"-0.004em" }}>
+                  {fmtTs(scan.created_at)}{trigger}
                 </span>
-                <span style={{ fontFamily:"var(--font-ui)", fontSize:"12px",
-                               color:"var(--accent)", overflow:"hidden",
-                               textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                <span style={{ fontFamily:"var(--font-ui)", fontSize:12, color:"rgba(0,0,0,0.9)",
+                               fontWeight:600, overflow:"hidden", textOverflow:"ellipsis",
+                               whiteSpace:"nowrap", letterSpacing:"-0.006em" }}>
                   {scan.account_name || "Ad-hoc"}
                 </span>
                 <span style={{
-                  fontSize:"10px", fontWeight:700, letterSpacing:"0.06em",
-                  color: scan.cloud === "aws" ? "#ff9900" : "#0089d6",
+                  fontSize:10, fontWeight:700, letterSpacing:"0.04em",
+                  color: scan.cloud === "aws" ? "#b87a2a" : "#3a7ab0",
                   fontFamily:"var(--font-ui)",
-                }}>
-                  {(scan.cloud || "—").toUpperCase()}
-                </span>
-                <span style={{ color: score != null ? scoreColor(score) : "var(--accent3)",
-                               fontWeight:700, fontFamily:"var(--font-display)",
-                               fontSize:"16px" }}>
+                }}>{(scan.cloud || "—").toUpperCase()}</span>
+                <span style={{ color: score != null ? scoreColor(score) : "#a39e98",
+                               fontWeight:700, fontFamily:"var(--font-display)", fontSize:15,
+                               letterSpacing:"-0.02em" }}>
                   {score ?? "—"}
                 </span>
-                <span style={{ color:"var(--red)", fontFamily:"var(--font-mono)",
-                               fontSize:"13px", fontWeight:fc.critical > 0 ? 700 : 400 }}>
+                <span style={{ color:SEV_COLOR.CRITICAL, fontFamily:"var(--font-ui)",
+                               fontSize:12, fontWeight: fc.critical > 0 ? 700 : 400 }}>
                   {fc.critical ?? 0}
                 </span>
-                <span style={{ color:"var(--orange)", fontFamily:"var(--font-mono)",
-                               fontSize:"13px", fontWeight:fc.high > 0 ? 700 : 400 }}>
+                <span style={{ color:SEV_COLOR.HIGH, fontFamily:"var(--font-ui)",
+                               fontSize:12, fontWeight: fc.high > 0 ? 700 : 400 }}>
                   {fc.high ?? 0}
                 </span>
-                <span style={{ color:"var(--yellow)", fontFamily:"var(--font-mono)",
-                               fontSize:"13px" }}>
+                <span style={{ color:SEV_COLOR.MEDIUM, fontFamily:"var(--font-ui)", fontSize:12 }}>
                   {fc.medium ?? 0}
                 </span>
-                <span style={{ color:"var(--green)", fontFamily:"var(--font-mono)",
-                               fontSize:"13px" }}>
+                <span style={{ color:SEV_COLOR.LOW, fontFamily:"var(--font-ui)", fontSize:12 }}>
                   {fc.low ?? 0}
                 </span>
-                {/* Download buttons — stop propagation so row doesn't expand */}
+                {/* Per-scan download buttons */}
                 <div style={{ display:"flex", gap:4 }} onClick={e => e.stopPropagation()}>
                   {["csv","json"].map(fmt => (
                     <button key={fmt} onClick={async () => {
                       try {
                         const res = await fetch(`${API}/scans/${scan.id}/report?format=${fmt}`, {
-                          headers: { "Authorization": `Bearer ${token}` },
+                          headers: { Authorization: `Bearer ${token}` },
                         });
                         if (!res.ok) return;
                         const blob = await res.blob();
@@ -353,138 +482,149 @@ export default function HistoryPage({ token, role }) {
                         const a    = document.createElement("a");
                         a.href = url;
                         a.download = `cspm-${(scan.account_name||"scan").replace(/\s+/g,"-")}-${(scan.created_at||"").slice(0,10)}.${fmt}`;
-                        a.click();
-                        URL.revokeObjectURL(url);
+                        a.click(); URL.revokeObjectURL(url);
                       } catch {}
                     }} style={{
-                      padding:"3px 7px", fontSize:"9px", fontWeight:700,
-                      fontFamily:"var(--font-ui)", letterSpacing:"0.06em",
-                      border:"1px solid var(--border)", borderRadius:3,
-                      background:"transparent", cursor:"pointer",
-                      color:"var(--accent2)",
-                    }}>↓{fmt.toUpperCase()}</button>
+                      padding:"3px 7px", fontSize:9, fontWeight:700,
+                      fontFamily:"var(--font-ui)", letterSpacing:"0.04em",
+                      border:"1px solid rgba(0,0,0,0.1)", borderRadius:4,
+                      background:"transparent", cursor:"pointer", color:"#a39e98",
+                      transition:"all 0.1s",
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.color="#4b7bc9"; e.currentTarget.style.borderColor="rgba(75,123,201,0.4)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.color="#a39e98"; e.currentTarget.style.borderColor="rgba(0,0,0,0.1)"; }}
+                    >↓{fmt.toUpperCase()}</button>
                   ))}
                 </div>
               </div>
 
-              {/* Expanded: per-cloud scores + diff */}
+              {/* Expanded detail */}
               {isOpen && (
-                <div style={{
-                  padding:"12px 20px 16px",
-                  background:"rgba(0,0,0,0.2)",
-                  borderTop:"1px solid var(--border)",
-                }}>
-                  {/* Scores row */}
-                  <div style={{ display:"flex", gap:"24px", flexWrap:"wrap", marginBottom:12 }}>
-                    {scan.scores && Object.entries(scan.scores).map(([cloud, s]) => (
-                      <div key={cloud} style={{ textAlign:"center" }}>
-                        <div style={{ fontSize:"22px", fontWeight:700,
+                <div style={{ padding:"14px 18px 18px", background:"#f6f5f4",
+                              borderTop:"1px solid rgba(0,0,0,0.07)" }}>
+
+                  {/* Score breakdown */}
+                  <div style={{ display:"flex", gap:24, flexWrap:"wrap", marginBottom:14 }}>
+                    {scan.scores && Object.entries(scan.scores).map(([cl, s]) => (
+                      <div key={cl} style={{ textAlign:"center" }}>
+                        <div style={{ fontSize:22, fontWeight:700,
                                       fontFamily:"var(--font-display)",
-                                      color: scoreColor(s) }}>{s}</div>
-                        <div style={{ fontSize:"10px", color:"var(--accent3)",
-                                      fontFamily:"var(--font-ui)",
-                                      letterSpacing:"0.08em", marginTop:"2px" }}>
-                          {cloud.toUpperCase()}
+                                      color:scoreColor(s), letterSpacing:"-0.03em" }}>{s}</div>
+                        <div style={{ fontSize:10, color:"#a39e98", fontFamily:"var(--font-ui)",
+                                      letterSpacing:"0.04em", marginTop:2, textTransform:"uppercase" }}>
+                          {cl}
                         </div>
-                        <div style={{ fontSize:"9px", color:scoreColor(s),
-                                      fontFamily:"var(--font-ui)",
-                                      letterSpacing:"0.06em" }}>
-                          {scoreLabel(s)} RISK
+                        <div style={{ fontSize:9, color:scoreColor(s), fontFamily:"var(--font-ui)",
+                                      letterSpacing:"0.04em" }}>
+                          {scoreLabel(s)} risk
                         </div>
                       </div>
                     ))}
-                    <div style={{ color:"var(--accent3)", fontSize:"11px",
-                                  fontFamily:"var(--font-mono)", alignSelf:"center" }}>
-                      {scan.resources_scanned ?? 0} resources scanned
-                      {scan.triggered_by === "schedule" ? " · auto-scan" : " · manual"}
+                    <div style={{ color:"#a39e98", fontSize:11, fontFamily:"var(--font-ui)",
+                                  alignSelf:"center", letterSpacing:"-0.006em" }}>
+                      {scan.resources_scanned ?? 0} resources ·{" "}
+                      {scan.triggered_by === "schedule" ? "auto-scan" : "manual"}
                     </div>
                   </div>
 
-                  {/* Diff + Findings section */}
+                  {/* Diff + findings tabs */}
                   {(() => {
                     const full = fullScans[scan.id];
-                    if (!full) return null;
-                    const diff = full.diff;
-                    const tab  = diffTab[scan.id] || "all";
-                    const SEV_C = { CRITICAL:"#e05555", HIGH:"#d97b3a", MEDIUM:"#c9a84c", LOW:"#4caf7d" };
+                    if (!full) return (
+                      <div style={{ color:"#a39e98", fontSize:12,
+                                    fontFamily:"var(--font-ui)" }}>Loading details…</div>
+                    );
+                    const diff     = full.diff;
+                    const tab      = diffTab[scan.id] || "all";
                     const findings = full.findings || [];
                     return (
                       <div>
-                        {/* Diff banner — only when previous scan exists */}
                         {diff && (
-                          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10,
-                                        padding:"8px 12px", borderRadius:6,
-                                        background:"var(--surface)",
-                                        border:"1px solid var(--border)" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:12,
+                                        marginBottom:10, padding:"8px 12px", borderRadius:6,
+                                        background:"#fff", border:"1px solid rgba(0,0,0,0.09)" }}>
                             {diff.new_count > 0 && (
-                              <span style={{ color:"#ff2255", fontSize:12,
-                                             fontFamily:"var(--font-mono)", fontWeight:700 }}>
-                                +{diff.new_count} NEW
+                              <span style={{ color:"#b54545", fontSize:12,
+                                             fontFamily:"var(--font-ui)", fontWeight:700 }}>
+                                +{diff.new_count} new
                               </span>
                             )}
                             {diff.resolved_count > 0 && (
-                              <span style={{ color:"#39ff14", fontSize:12,
-                                             fontFamily:"var(--font-mono)", fontWeight:700 }}>
-                                ✓{diff.resolved_count} RESOLVED
+                              <span style={{ color:"#3a8a60", fontSize:12,
+                                             fontFamily:"var(--font-ui)", fontWeight:700 }}>
+                                ✓ {diff.resolved_count} resolved
                               </span>
                             )}
                             {diff.new_count === 0 && diff.resolved_count === 0 && (
-                              <span style={{ color:"var(--accent3)", fontSize:12,
-                                             fontFamily:"var(--font-mono)" }}>
+                              <span style={{ color:"#a39e98", fontSize:12, fontFamily:"var(--font-ui)" }}>
                                 No changes since previous scan
                               </span>
                             )}
-                            <span style={{ color:"var(--accent3)", fontSize:11,
-                                           fontFamily:"var(--font-mono)", marginLeft:"auto" }}>
+                            <span style={{ color:"#a39e98", fontSize:11, fontFamily:"var(--font-ui)",
+                                           marginLeft:"auto", letterSpacing:"-0.006em" }}>
                               vs {fmtTs(diff.previous_scan_date)}
                             </span>
                           </div>
                         )}
 
-                        {/* Tabs */}
-                        <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+                        <div style={{ display:"flex", gap:4, marginBottom:10 }}>
                           {(diff ? ["all","changes"] : ["all"]).map(t => (
-                            <button key={t} onClick={() => setDiffTab(p => ({ ...p, [scan.id]: t }))} style={{
-                              padding:"4px 10px", borderRadius:4, fontSize:10,
-                              fontFamily:"var(--font-ui)", fontWeight:700, letterSpacing:"0.08em",
-                              cursor:"pointer", border:"1px solid var(--border)",
-                              background: tab === t ? "rgba(79,143,247,0.08)" : "transparent",
-                              color: tab === t ? "var(--cyan)" : "var(--accent3)",
-                            }}>
-                              {t === "all" ? `ALL FINDINGS (${findings.length})` : "CHANGES"}
+                            <button key={t}
+                              onClick={() => setDiffTab(p => ({ ...p, [scan.id]: t }))}
+                              style={{
+                                padding:"4px 10px", borderRadius:6, fontSize:10,
+                                fontFamily:"var(--font-ui)", fontWeight:700,
+                                letterSpacing:"0.04em", cursor:"pointer",
+                                background: tab === t ? "rgba(75,123,201,0.1)" : "#fff",
+                                border: tab === t ? "1px solid rgba(75,123,201,0.3)"
+                                                  : "1px solid rgba(0,0,0,0.1)",
+                                color: tab === t ? "#4b7bc9" : "#a39e98",
+                                transition:"all 0.12s",
+                              }}>
+                              {t === "all" ? `All findings (${findings.length})` : "Changes"}
                             </button>
                           ))}
                         </div>
 
-                        {/* ALL FINDINGS tab */}
                         {tab === "all" && (
-                          <div style={{ maxHeight:320, overflowY:"auto" }}>
+                          <div style={{ maxHeight:300, overflowY:"auto" }}>
                             {findings.length === 0 ? (
-                              <div style={{ color:"var(--accent3)", fontSize:12,
-                                             fontFamily:"var(--font-mono)", padding:"8px 0" }}>
+                              <div style={{ color:"#a39e98", fontSize:12,
+                                            fontFamily:"var(--font-ui)", padding:"8px 0" }}>
                                 No findings for this scan.
                               </div>
                             ) : findings.map((f, fi) => (
-                              <div key={fi} style={{ padding:"6px 10px", marginBottom:4,
-                                border:`1px solid ${SEV_C[f.severity] || "#888"}22`,
-                                borderRadius:5, background:"var(--surface)" }}>
-                                <span style={{ color:SEV_C[f.severity]||"#888", fontSize:10,
-                                               fontFamily:"var(--font-ui)", fontWeight:700,
-                                               minWidth:70, display:"inline-block" }}>
-                                  {f.severity}
-                                </span>
-                                <span style={{ color:"var(--accent)", fontSize:11,
-                                               fontFamily:"var(--font-mono)", marginLeft:4 }}>
-                                  {f.rule_id}
-                                </span>
-                                <span style={{ color:"var(--accent3)", fontSize:11,
-                                               fontFamily:"var(--font-mono)", marginLeft:8 }}>
-                                  {f.resource_name}
-                                </span>
+                              <div key={fi} style={{
+                                padding:"7px 10px", marginBottom:4, borderRadius:6,
+                                background:"#fff", border:`1px solid ${SEV_COLOR[f.severity] || "#a39e98"}22`,
+                              }}>
+                                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                                  <span style={{
+                                    fontSize:9, fontWeight:700, padding:"2px 6px", borderRadius:4,
+                                    fontFamily:"var(--font-ui)", letterSpacing:"0.04em",
+                                    background: SEV_BG[f.severity] || "rgba(0,0,0,0.05)",
+                                    color: SEV_COLOR[f.severity] || "#a39e98",
+                                  }}>{f.severity}</span>
+                                  <span style={{ color:"rgba(0,0,0,0.8)", fontSize:11,
+                                                 fontFamily:"var(--font-ui)", fontWeight:600 }}>
+                                    {f.rule_id}
+                                  </span>
+                                  {f.service && (
+                                    <span style={{ fontSize:10, color:"#a39e98",
+                                                   fontFamily:"var(--font-ui)", letterSpacing:"-0.006em" }}>
+                                      · {f.service}
+                                    </span>
+                                  )}
+                                  <span style={{ color:"#615d59", fontSize:11,
+                                                 fontFamily:"var(--font-ui)", marginLeft:"auto",
+                                                 letterSpacing:"-0.006em" }}>
+                                    {f.resource_name}
+                                  </span>
+                                </div>
                                 {f.message && (
-                                  <div style={{ color:"var(--accent2)", fontSize:10,
-                                                fontFamily:"var(--font-mono)", marginTop:2,
-                                                paddingLeft:74, opacity:0.8 }}>
+                                  <div style={{ color:"#a39e98", fontSize:10,
+                                                fontFamily:"var(--font-ui)", marginTop:3,
+                                                paddingLeft:2, letterSpacing:"-0.004em" }}>
                                     {f.message}
                                   </div>
                                 )}
@@ -493,66 +633,53 @@ export default function HistoryPage({ token, role }) {
                           </div>
                         )}
 
-                        {/* CHANGES tab */}
                         {tab === "changes" && diff && (
-                          <div style={{ maxHeight:320, overflowY:"auto" }}>
-                            {diff.new_findings.length > 0 && (
-                              <>
-                                <div style={{ fontSize:10, color:"#ff2255", fontFamily:"var(--font-ui)",
-                                               fontWeight:700, letterSpacing:"0.1em", marginBottom:6 }}>
-                                  NEW ({diff.new_findings.length})
+                          <div style={{ maxHeight:300, overflowY:"auto" }}>
+                            {diff.new_findings.map((f, fi) => (
+                              <div key={`n-${fi}`} style={{
+                                padding:"7px 10px", marginBottom:4, borderRadius:6,
+                                background:"rgba(181,69,69,0.04)",
+                                border:"1px solid rgba(181,69,69,0.15)",
+                              }}>
+                                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                                  <span style={{ color:"#b54545", fontSize:9, fontWeight:700,
+                                                 fontFamily:"var(--font-ui)" }}>+ NEW</span>
+                                  <span style={{ color:SEV_COLOR[f.severity]||"#a39e98",
+                                                 fontSize:9, fontWeight:700,
+                                                 fontFamily:"var(--font-ui)" }}>{f.severity}</span>
+                                  <span style={{ color:"rgba(0,0,0,0.8)", fontSize:11,
+                                                 fontFamily:"var(--font-ui)" }}>{f.rule_id}</span>
+                                  <span style={{ color:"#615d59", fontSize:11,
+                                                 fontFamily:"var(--font-ui)", marginLeft:"auto" }}>
+                                    {f.resource_name}
+                                  </span>
                                 </div>
-                                {diff.new_findings.map((f, fi) => (
-                                  <div key={fi} style={{ padding:"6px 10px", marginBottom:4,
-                                    border:"1px solid rgba(255,34,85,0.2)",
-                                    borderRadius:5, background:"rgba(255,34,85,0.04)" }}>
-                                    <span style={{ color:SEV_C[f.severity]||"#888", fontSize:10,
-                                                   fontFamily:"var(--font-ui)", fontWeight:700 }}>
-                                      {f.severity}
-                                    </span>
-                                    <span style={{ color:"var(--accent)", fontSize:12,
-                                                   fontFamily:"var(--font-mono)", marginLeft:8 }}>
-                                      {f.rule_id}
-                                    </span>
-                                    <span style={{ color:"var(--accent3)", fontSize:11,
-                                                   fontFamily:"var(--font-mono)", marginLeft:8 }}>
-                                      {f.resource_name}
-                                    </span>
-                                  </div>
-                                ))}
-                              </>
-                            )}
-                            {diff.resolved_findings.length > 0 && (
-                              <>
-                                <div style={{ fontSize:10, color:"#39ff14", fontFamily:"var(--font-ui)",
-                                               fontWeight:700, letterSpacing:"0.1em",
-                                               marginTop:10, marginBottom:6 }}>
-                                  RESOLVED ({diff.resolved_findings.length})
+                              </div>
+                            ))}
+                            {diff.resolved_findings.map((f, fi) => (
+                              <div key={`r-${fi}`} style={{
+                                padding:"7px 10px", marginBottom:4, borderRadius:6,
+                                background:"rgba(58,138,96,0.04)",
+                                border:"1px solid rgba(58,138,96,0.15)",
+                                opacity:0.7,
+                              }}>
+                                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                                  <span style={{ color:"#3a8a60", fontSize:9, fontWeight:700,
+                                                 fontFamily:"var(--font-ui)" }}>✓ RESOLVED</span>
+                                  <span style={{ color:"rgba(0,0,0,0.5)", fontSize:11,
+                                                 fontFamily:"var(--font-ui)",
+                                                 textDecoration:"line-through" }}>{f.rule_id}</span>
+                                  <span style={{ color:"#a39e98", fontSize:11,
+                                                 fontFamily:"var(--font-ui)", marginLeft:"auto",
+                                                 textDecoration:"line-through" }}>
+                                    {f.resource_name}
+                                  </span>
                                 </div>
-                                {diff.resolved_findings.map((f, fi) => (
-                                  <div key={fi} style={{ padding:"6px 10px", marginBottom:4,
-                                    border:"1px solid rgba(57,255,20,0.15)",
-                                    borderRadius:5, background:"rgba(57,255,20,0.03)",
-                                    textDecoration:"line-through", opacity:0.6 }}>
-                                    <span style={{ color:"var(--accent3)", fontSize:10,
-                                                   fontFamily:"var(--font-ui)", fontWeight:700 }}>
-                                      {f.severity}
-                                    </span>
-                                    <span style={{ color:"var(--accent3)", fontSize:12,
-                                                   fontFamily:"var(--font-mono)", marginLeft:8 }}>
-                                      {f.rule_id}
-                                    </span>
-                                    <span style={{ color:"var(--accent3)", fontSize:11,
-                                                   fontFamily:"var(--font-mono)", marginLeft:8 }}>
-                                      {f.resource_name}
-                                    </span>
-                                  </div>
-                                ))}
-                              </>
-                            )}
+                              </div>
+                            ))}
                             {diff.new_findings.length === 0 && diff.resolved_findings.length === 0 && (
-                              <div style={{ color:"var(--accent3)", fontSize:12,
-                                             fontFamily:"var(--font-mono)", padding:"8px 0" }}>
+                              <div style={{ color:"#a39e98", fontSize:12,
+                                            fontFamily:"var(--font-ui)", padding:"8px 0" }}>
                                 No changes since previous scan.
                               </div>
                             )}

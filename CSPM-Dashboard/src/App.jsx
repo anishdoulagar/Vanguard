@@ -81,13 +81,13 @@ const IconAudit = () => (
 );
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "DASHBOARD",  Icon: IconDashboard },
-  { id: "accounts",  label: "ACCOUNTS",   Icon: IconAccounts  },
-  { id: "connect",   label: "QUICK SCAN", Icon: IconScan,     minRole: "analyst" },
-  { id: "history",   label: "HISTORY",    Icon: IconHistory   },
-  { id: "alerts",    label: "ALERTS",     Icon: IconBell,     minRole: "analyst" },
-  { id: "policies",  label: "POLICIES",   Icon: IconPolicies  },
-  { id: "audit",     label: "AUDIT LOG",  Icon: IconAudit,    minRole: "analyst" },
+  { id: "dashboard", label: "Dashboard",  Icon: IconDashboard },
+  { id: "accounts",  label: "Accounts",   Icon: IconAccounts  },
+  { id: "connect",   label: "Quick Scan", Icon: IconScan,     minRole: "analyst" },
+  { id: "history",   label: "History",    Icon: IconHistory   },
+  { id: "alerts",    label: "Alerts",     Icon: IconBell      },
+  { id: "policies",  label: "Policies",   Icon: IconPolicies  },
+  { id: "audit",     label: "Audit Log",  Icon: IconAudit,    minRole: "analyst" },
 ];
 
 const IconTeams = () => (
@@ -102,9 +102,9 @@ const IconTeams = () => (
 
 // Extra nav items only visible to admin+
 const ADMIN_NAV_ITEMS = [
-  { id: "teams",      label: "TEAMS",      Icon: IconTeams,  minRole: "admin"      },
-  { id: "team-users", label: "MY TEAM",    Icon: IconUsers,  minRole: "admin"      },
-  { id: "users",      label: "USERS",      Icon: IconUsers,  minRole: "superadmin" },
+  { id: "teams",      label: "Teams",      Icon: IconTeams,  minRole: "admin"      },
+  { id: "team-users", label: "My Team",    Icon: IconUsers,  minRole: "admin"      },
+  { id: "users",      label: "Users",      Icon: IconUsers,  minRole: "superadmin" },
 ];
 
 // ── Session persistence helpers ───────────────────────────────────────────────
@@ -168,12 +168,23 @@ export default function App() {
     localStorage.removeItem("cspm_theme");
   }, []);
 
-  const [page,           setPage]           = useState("dashboard");
+  const [page,           setPage]           = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("cspm_page");
+      const safe  = ["dashboard","accounts","history","alerts","policies","audit",
+                     "teams","team-users","users","connect"];
+      return saved && safe.includes(saved) ? saved : "dashboard";
+    } catch { return "dashboard"; }
+  });
   const [scanResult,     setScanResult]     = useState(null);
   const [scanPayload,    setScanPayload]    = useState(null);
   const [dashboardData,  setDashboardData]  = useState(null);  // persists across navigation
   const [showSecurity,   setShowSecurity]   = useState(false);
   const [adminMenuOpen,  setAdminMenuOpen]  = useState(false);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("cspm_page", page); } catch {}
+  }, [page]);
 
   useEffect(() => {
     if (!adminMenuOpen) return;
@@ -199,6 +210,7 @@ export default function App() {
 
   function handleLogout() {
     clearSession();
+    try { sessionStorage.removeItem("cspm_page"); } catch {}
     setToken(null); setUser(null); setDashboardData(null);
     setPage("dashboard"); setScanResult(null); setScanPayload(null);
   }
@@ -220,11 +232,18 @@ export default function App() {
   if (needsSetup === null) return (
     <div style={{
       minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: "var(--bg)", color: "var(--cyan)",
-      fontFamily: "var(--font-ui)", fontSize: 13, letterSpacing: "0.14px",
-      fontWeight: 500,
+      background: "#f6f5f4",
+      fontFamily: "var(--font-ui)", fontSize: 13, letterSpacing: "-0.006em",
+      fontWeight: 500, color: "var(--accent3)",
     }}>
-      Initializing Vanguard...
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        <span style={{
+          display:"inline-block", width:14, height:14, borderRadius:"50%",
+          border:"2px solid rgba(0,0,0,0.1)", borderTopColor:"#0075de",
+          animation:"spin 0.7s linear infinite",
+        }} />
+        Loading…
+      </div>
     </div>
   );
 
@@ -291,7 +310,6 @@ export default function App() {
       case "history":
         return <HistoryPage token={token} role={user.role} />;
       case "alerts":
-        if (!hasRole("analyst")) return <Denied />;
         return <AlertsPage token={token} role={user.role} userEmail={user.email} />;
       case "policies":
         return <PoliciesPage token={token} role={user.role} />;
@@ -374,15 +392,17 @@ export default function App() {
       fontFamily: "var(--font-mono)", fontSize: 13, boxSizing: "border-box",
     };
     const btnPrimary = {
-      width: "100%", padding: "10px", background: "#111827", color: "#ffffff",
-      border: "none", borderRadius: 12, fontFamily: "var(--font-ui)", fontWeight: 500,
-      fontSize: 14, cursor: "pointer", letterSpacing: "0.08px", marginTop: 4,
-      boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.28) 0px 1px 3px",
+      width: "100%", padding: "9px 16px", background: "#4b7bc9", color: "#ffffff",
+      border: "none", borderRadius: 4, fontFamily: "var(--font-ui)", fontWeight: 600,
+      fontSize: 14, cursor: "pointer", letterSpacing: "-0.006em", marginTop: 4,
+      boxShadow: "rgba(0,0,0,0.1) 0px 1px 3px, rgba(75,123,201,0.15) 0px 2px 8px",
+      transition: "background 0.15s ease, transform 0.1s ease",
     };
     const btnGhost = {
-      width: "100%", padding: "10px", background: "var(--card)", color: "var(--accent3)",
-      border: "1px solid var(--border)", borderRadius: 12, fontFamily: "var(--font-ui)",
-      fontWeight: 500, fontSize: 13, cursor: "pointer", letterSpacing: "0.08px", marginTop: 8,
+      width: "100%", padding: "9px 16px", background: "rgba(0,0,0,0.04)", color: "var(--accent2)",
+      border: "1px solid rgba(0,0,0,0.1)", borderRadius: 4, fontFamily: "var(--font-ui)",
+      fontWeight: 500, fontSize: 13, cursor: "pointer", letterSpacing: "-0.006em", marginTop: 8,
+      transition: "background 0.15s ease",
     };
 
     return (
@@ -402,8 +422,8 @@ export default function App() {
             display: "flex", justifyContent: "space-between", alignItems: "center",
             padding: "16px 20px", borderBottom: "1px solid var(--border)",
           }}>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: "var(--accent)", letterSpacing: "0.06em" }}>
-              ACCOUNT SECURITY
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: "var(--accent)", letterSpacing: "-0.01em" }}>
+              Account Security
             </div>
             <button onClick={() => setShowSecurity(false)} style={{
               background: "transparent", border: "none", cursor: "pointer",
@@ -416,7 +436,7 @@ export default function App() {
               <div style={{
                 padding: "10px 14px", borderRadius: 6, marginBottom: 14,
                 background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.25)",
-                color: "#e05555", fontFamily: "var(--font-mono)", fontSize: 12,
+                color: "#b54545", fontFamily: "var(--font-ui)", fontSize: 12, letterSpacing: "-0.006em",
               }}>{err}</div>
             )}
 
@@ -554,30 +574,30 @@ export default function App() {
   }
 
   const roleColors = {
-    viewer:     { bg:"rgba(0,0,0,0.04)", border:"rgba(0,0,0,0.12)", text:"var(--accent2)" },
-    analyst:    { bg:"rgba(0,0,0,0.04)", border:"rgba(0,0,0,0.12)", text:"var(--accent2)" },
-    admin:      { bg:"rgba(0,0,0,0.06)", border:"rgba(0,0,0,0.16)", text:"var(--accent)" },
-    superadmin: { bg:"rgba(0,0,0,0.08)", border:"rgba(0,0,0,0.20)", text:"var(--accent)" },
+    viewer:     { bg:"rgba(0,0,0,0.04)",    border:"rgba(0,0,0,0.1)",    text:"var(--accent2)" },
+    analyst:    { bg:"rgba(0,117,222,0.07)", border:"rgba(0,117,222,0.18)", text:"#0075de" },
+    admin:      { bg:"rgba(0,117,222,0.09)", border:"rgba(0,117,222,0.22)", text:"#005bab" },
+    superadmin: { bg:"rgba(0,117,222,0.12)", border:"rgba(0,117,222,0.28)", text:"#004a8f" },
   };
   const rc = roleColors[user.role] || roleColors.analyst;
 
   const sideNavBtn = (active) => ({
     display:"flex", alignItems:"center", gap:9,
-    padding:"7px 12px", width:"100%", border:"none",
+    padding:"7px 10px", width:"100%", border:"none",
     background: active ? "var(--nav-active-bg)" : "transparent",
-    color: active ? "var(--accent)" : "var(--accent2)",
+    color: active ? "rgba(0,0,0,0.9)" : "var(--accent2)",
     fontFamily:"var(--font-ui)", fontWeight: active ? 600 : 400,
-    fontSize:13, letterSpacing:"0.01em",
-    cursor:"pointer", borderRadius:8, textAlign:"left",
-    transition:"background 0.12s, color 0.12s",
+    fontSize:13, letterSpacing:"-0.006em",
+    cursor:"pointer", borderRadius:6, textAlign:"left",
+    transition:"background 0.12s ease, color 0.12s ease",
     position:"relative",
   });
 
   const iconBtn = {
     display:"flex", alignItems:"center", justifyContent:"center",
-    width:30, height:30, border:"none", background:"transparent",
-    cursor:"pointer", borderRadius:6, color:"var(--accent3)",
-    transition:"color 0.15s, background 0.12s",
+    width:28, height:28, border:"none", background:"transparent",
+    cursor:"pointer", borderRadius:5, color:"var(--accent3)",
+    transition:"color 0.15s ease, background 0.12s ease",
     flexShrink:0,
   };
 
@@ -596,27 +616,27 @@ export default function App() {
       }}>
         {/* Logo */}
         <div style={{
-          display:"flex", alignItems:"center", gap:9,
-          padding:"16px 14px 12px",
+          display:"flex", alignItems:"center", gap:10,
+          padding:"18px 14px 14px",
           borderBottom:"1px solid var(--border)",
           flexShrink:0,
         }}>
-          <img src="/favicon.svg" width={28} height={28} alt="Vanguard" style={{ flexShrink:0 }} />
+          <img src="/favicon.svg" width={26} height={26} alt="Vanguard" style={{ flexShrink:0 }} />
           <div>
-            <div style={{ fontFamily:"var(--font-display)", fontWeight:700, fontSize:14, color:"var(--accent)", letterSpacing:"0.01em" }}>Vanguard</div>
-            <div style={{ fontFamily:"var(--font-mono)", fontSize:9, color:"var(--accent3)", letterSpacing:"0.1em" }}>// CSPM</div>
+            <div style={{ fontFamily:"var(--font-display)", fontWeight:700, fontSize:14, color:"rgba(0,0,0,0.9)", letterSpacing:"-0.02em" }}>Vanguard</div>
+            <div style={{ fontFamily:"var(--font-ui)", fontSize:9, color:"var(--accent3)", letterSpacing:"-0.004em" }}>CSPM Platform</div>
           </div>
         </div>
 
         {/* Main nav */}
         <nav style={{ padding:"10px 8px", flex:1 }}>
-          <div style={{ fontSize:9, fontWeight:700, letterSpacing:"0.12em", color:"var(--accent3)", padding:"4px 8px 6px", textTransform:"uppercase" }}>Navigation</div>
-          {NAV_ITEMS.filter(item => !item.minRole || hasRole(item.minRole)).map(({ id, label, Icon }) => {
+          <div style={{ fontSize:10, fontWeight:600, letterSpacing:"0.04em", color:"var(--accent3)", padding:"6px 8px 5px", textTransform:"uppercase" }}>Menu</div>
+          {NAV_ITEMS.filter(item => !item.minRole || hasRole(item.minRole)).map(({ id, label, Icon }, i) => {
             const active = activePage === id;
             return (
               <button key={id} onClick={() => setPage(id)}
                 className={`nav-btn${active ? " active" : ""}`}
-                style={sideNavBtn(active)}>
+                style={{ ...sideNavBtn(active), "--i": i, animationDelay: `${i * 30}ms` }}>
                 <Icon />{label}
               </button>
             );
@@ -626,7 +646,7 @@ export default function App() {
           {(user.role === "superadmin" || user.role === "admin") && (
             <>
               <div style={{ height:1, background:"var(--border)", margin:"10px 4px" }} />
-              <div style={{ fontSize:9, fontWeight:700, letterSpacing:"0.12em", color:"var(--accent3)", padding:"4px 8px 6px", textTransform:"uppercase" }}>Admin</div>
+              <div style={{ fontSize:10, fontWeight:600, letterSpacing:"0.04em", color:"var(--accent3)", padding:"6px 8px 5px", textTransform:"uppercase" }}>Admin</div>
               {ADMIN_NAV_ITEMS.filter(item => item.minRole === "admin" || user.role === "superadmin").map(({ id, label, Icon }) => {
                 const active = activePage === id;
                 return (
@@ -642,45 +662,69 @@ export default function App() {
         </nav>
 
         {/* Bottom strip: user + controls */}
-        <div style={{ padding:"10px 12px", borderTop:"1px solid var(--border)", flexShrink:0 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+        <div style={{ padding:"12px 12px 14px", borderTop:"1px solid var(--border)", flexShrink:0 }}>
+          {/* User info row */}
+          <div style={{
+            display:"flex", alignItems:"center", gap:9,
+            padding:"8px 10px", borderRadius:8,
+            background:"var(--surface)",
+            border:"1px solid rgba(0,0,0,0.07)",
+            marginBottom:8,
+          }}>
             <div style={{
-              width:28, height:28, borderRadius:"50%", flexShrink:0,
+              width:30, height:30, borderRadius:"50%", flexShrink:0,
               background:rc.bg, border:`1px solid ${rc.border}`,
               display:"flex", alignItems:"center", justifyContent:"center",
-              fontFamily:"var(--font-ui)", fontSize:11, fontWeight:700, color:rc.text,
+              fontFamily:"var(--font-ui)", fontSize:12, fontWeight:700, color:rc.text,
             }}>
               {(user.name || user.username || "?")[0].toUpperCase()}
             </div>
-            <div style={{ minWidth:0 }}>
+            <div style={{ minWidth:0, flex:1 }}>
               <div style={{
                 fontFamily:"var(--font-ui)", fontWeight:600, fontSize:12,
-                color:"var(--accent)", lineHeight:1.2,
+                color:"rgba(0,0,0,0.9)", lineHeight:1.3, letterSpacing:"-0.006em",
                 overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-              }}>{user.name}</div>
-              <div style={{ fontSize:9, fontWeight:700, color:"var(--accent3)", letterSpacing:"0.08em", textTransform:"uppercase" }}>{user.role}</div>
+              }}>{user.name || user.username}</div>
+              <div style={{
+                fontSize:10, fontWeight:500, color:"var(--accent3)",
+                letterSpacing:"0.01em", textTransform:"capitalize",
+              }}>{user.role}</div>
             </div>
           </div>
-          <div style={{ display:"flex", gap:2, justifyContent:"flex-end" }}>
+          {/* Action buttons */}
+          <div style={{ display:"flex", gap:4 }}>
             <button onClick={() => setShowSecurity(true)}
               title={user?.mfa_enabled ? "MFA enabled" : "Set up MFA"}
-              style={{ ...iconBtn, color: user?.mfa_enabled ? "var(--green)" : "var(--accent3)" }}
-              onMouseEnter={e => { e.currentTarget.style.background="var(--surface)"; e.currentTarget.style.color="var(--accent)"; }}
+              style={{
+                ...iconBtn, flex:1, gap:5,
+                fontSize:11, fontWeight:500,
+                color: user?.mfa_enabled ? "var(--green)" : "var(--accent3)",
+                border:"1px solid rgba(0,0,0,0.07)",
+                background:"transparent",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background="var(--surface)"; e.currentTarget.style.color="rgba(0,0,0,0.8)"; }}
               onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color=user?.mfa_enabled?"var(--green)":"var(--accent3)"; }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="5" y="11" width="14" height="10" rx="2"/>
                 <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
               </svg>
+              Security
             </button>
             <button onClick={handleLogout} title="Sign out"
-              style={iconBtn}
-              onMouseEnter={e => { e.currentTarget.style.background="rgba(220,38,38,0.06)"; e.currentTarget.style.color="var(--red)"; }}
+              style={{
+                ...iconBtn, flex:1, gap:5,
+                fontSize:11, fontWeight:500, color:"var(--accent3)",
+                border:"1px solid rgba(0,0,0,0.07)",
+                background:"transparent",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background="rgba(224,62,62,0.06)"; e.currentTarget.style.color="var(--red)"; }}
               onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="var(--accent3)"; }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                 <polyline points="16 17 21 12 16 7"/>
                 <line x1="21" y1="12" x2="9" y2="12"/>
               </svg>
+              Sign out
             </button>
           </div>
         </div>
@@ -688,28 +732,29 @@ export default function App() {
 
       {/* ── Main content area ── */}
       <div style={{ marginLeft:220, flex:1, minWidth:0, display:"flex", flexDirection:"column", minHeight:"100vh" }}>
-        {/* Slim breadcrumb bar */}
+        {/* Header bar */}
         <header style={{
           height:48, flexShrink:0,
-          background:"var(--card)",
-          borderBottom:"1px solid var(--border)",
+          background:"rgba(255,255,255,0.92)",
+          backdropFilter:"saturate(180%) blur(12px)",
+          WebkitBackdropFilter:"saturate(180%) blur(12px)",
+          borderBottom:"1px solid rgba(0,0,0,0.07)",
           display:"flex", alignItems:"center",
           padding:"0 24px",
           position:"sticky", top:0, zIndex:40,
-          boxShadow:"0 1px 0 var(--border)",
         }}>
           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--accent3)", letterSpacing:"0.1em" }}>VANGUARD</span>
-            <span style={{ color:"var(--accent3)", fontSize:12 }}>/</span>
-            <span style={{ fontFamily:"var(--font-ui)", fontWeight:600, fontSize:12, color:"var(--accent)" }}>
+            <span style={{ fontFamily:"var(--font-ui)", fontSize:13, color:"var(--accent3)", fontWeight:400 }}>Vanguard</span>
+            <span style={{ color:"rgba(0,0,0,0.2)", fontSize:14, fontWeight:300 }}>/</span>
+            <span style={{ fontFamily:"var(--font-ui)", fontWeight:600, fontSize:13, color:"rgba(0,0,0,0.9)", letterSpacing:"-0.006em" }}>
               {NAV_ITEMS.find(n => n.id === activePage)?.label
                 || ADMIN_NAV_ITEMS.find(n => n.id === activePage)?.label
                 || "Dashboard"}
             </span>
           </div>
           <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8 }}>
-            <div className="pulse-dot" style={{ background:"var(--green)" }} />
-            <span style={{ fontFamily:"var(--font-ui)", fontSize:11, color:"var(--accent3)" }}>{user.email || user.username}</span>
+            <div className="pulse-dot" />
+            <span style={{ fontFamily:"var(--font-ui)", fontSize:12, color:"var(--accent3)", letterSpacing:"-0.006em" }}>{user.email || user.username}</span>
           </div>
         </header>
 

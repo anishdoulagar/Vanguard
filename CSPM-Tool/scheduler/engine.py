@@ -214,6 +214,7 @@ async def _run_scheduled_scan(pool, job: dict) -> None:
             from notifications.email_engine import (
                 build_alert_email, send_alert_email, is_email_configured,
             )
+            from notifications.slack_engine import send_slack_notification
 
             loop      = asyncio.get_event_loop()
             creds     = decrypt_credentials(job["encrypted_creds"])
@@ -347,6 +348,15 @@ async def _run_scheduled_scan(pool, job: dict) -> None:
                             findings=findings_out,
                         )
                         sent = send_alert_email(alert_cfg["email"], subject, html)
+
+                        if alert_cfg.get("slack_enabled") and alert_cfg.get("slack_webhook_url"):
+                            send_slack_notification(
+                                webhook_url=alert_cfg["slack_webhook_url"],
+                                account_name=name, cloud=cloud,
+                                score=overall, threshold=alert_cfg["score_threshold"],
+                                findings=findings_out, trigger_reason=trigger_reason,
+                            )
+
                         async with pool.acquire() as conn:
                             await save_alert_history(
                                 conn, user_id=str(alert_cfg["user_id"]),

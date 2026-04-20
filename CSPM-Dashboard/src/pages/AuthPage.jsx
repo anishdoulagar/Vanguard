@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// ── Password policy ───────────────────────────────────────────────────────────
 function validatePassword(pw) {
   if (!pw || pw.length < 8)       return "At least 8 characters required.";
   if (!/[A-Z]/.test(pw))          return "Must include at least one uppercase letter.";
@@ -14,114 +13,56 @@ function validatePassword(pw) {
 function PasswordRequirements({ pw }) {
   const reqs = [
     { label: "8+ characters",            met: pw.length >= 8 },
-    { label: "Uppercase letter (A–Z)",   met: /[A-Z]/.test(pw) },
-    { label: "Lowercase letter (a–z)",   met: /[a-z]/.test(pw) },
-    { label: "Special character (!@#…)", met: /[^A-Za-z0-9]/.test(pw) },
+    { label: "Uppercase (A–Z)",           met: /[A-Z]/.test(pw) },
+    { label: "Lowercase (a–z)",           met: /[a-z]/.test(pw) },
+    { label: "Special character (!@#…)",  met: /[^A-Za-z0-9]/.test(pw) },
   ];
   if (!pw) return null;
   return (
-    <div style={{ marginTop: 8, marginBottom: 4, display: "flex", flexDirection: "column", gap: 3 }}>
+    <div style={{ marginTop: 6, marginBottom: 4, display: "flex", flexWrap: "wrap", gap: "4px 12px" }}>
       {reqs.map(r => (
-        <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontFamily: "var(--font-ui)" }}>
-          <span style={{ color: r.met ? "var(--green)" : "var(--accent3)", fontSize: 10 }}>{r.met ? "✓" : "○"}</span>
-          <span style={{ color: r.met ? "var(--green)" : "var(--accent3)" }}>{r.label}</span>
+        <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontFamily: "var(--font-ui)", color: r.met ? "#1aae39" : "#a39e98" }}>
+          <span style={{ fontSize: 9 }}>{r.met ? "●" : "○"}</span>
+          {r.label}
         </div>
       ))}
     </div>
   );
 }
 
-// ── Password strength ─────────────────────────────────────────────────────────
 function passwordStrength(pw) {
   if (!pw) return { level: 0, label: "", color: "" };
   let score = 0;
-  if (pw.length >= 8)  score++;
-  if (pw.length >= 12) score++;
-  if (/[A-Z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
+  if (pw.length >= 8)          score++;
+  if (pw.length >= 12)         score++;
+  if (/[A-Z]/.test(pw))        score++;
+  if (/[0-9]/.test(pw))        score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
-  if (score <= 1) return { level: 1, label: "Weak",       color: "var(--red)"    };
-  if (score <= 2) return { level: 2, label: "Fair",       color: "var(--orange)" };
-  if (score <= 3) return { level: 3, label: "Good",       color: "var(--yellow)" };
-  if (score <= 4) return { level: 4, label: "Strong",     color: "var(--green)"  };
-  return               { level: 5, label: "Very strong", color: "var(--green)"  };
+  if (score <= 1) return { level: 1, label: "Weak",        color: "#e03e3e" };
+  if (score <= 2) return { level: 2, label: "Fair",        color: "#dd5b00" };
+  if (score <= 3) return { level: 3, label: "Good",        color: "#dfab01" };
+  if (score <= 4) return { level: 4, label: "Strong",      color: "#1aae39" };
+  return                { level: 5, label: "Very strong",  color: "#1aae39" };
 }
 
-// ── Particle canvas — white dots on dark bg ───────────────────────────────────
-function ParticleCanvas() {
-  const canvasRef = useRef(null);
-  const mouse     = useRef({ x: -9999, y: -9999 });
-  const raf       = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx    = canvas.getContext("2d");
-    let W, H, dots = [];
-    const SPACING = 44;
-    const GLOW_R  = 180;
-
-    function resize() {
-      W = canvas.width  = window.innerWidth;
-      H = canvas.height = window.innerHeight;
-      dots = [];
-      for (let x = SPACING / 2; x < W + SPACING; x += SPACING)
-        for (let y = SPACING / 2; y < H + SPACING; y += SPACING)
-          dots.push({ x, y, phase: Math.random() * Math.PI * 2, r: 0.6 + Math.random() * 0.6 });
-    }
-
-    function draw(t) {
-      ctx.clearRect(0, 0, W, H);
-      const { x: mx, y: my } = mouse.current;
-      for (const d of dots) {
-        const dist  = Math.hypot(d.x - mx, d.y - my);
-        const near  = Math.max(0, 1 - dist / GLOW_R);
-        const pulse = Math.sin(t * 0.0004 + d.phase) * 0.025;
-        const alpha = 0.08 + near * 0.55 + pulse;
-        ctx.beginPath();
-        ctx.arc(d.x, d.y, d.r + near * 2, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-        ctx.fill();
-      }
-      raf.current = requestAnimationFrame(draw);
-    }
-
-    resize();
-    const onResize = () => resize();
-    const onMove   = e => { mouse.current.x = e.clientX; mouse.current.y = e.clientY; };
-    window.addEventListener("resize", onResize);
-    window.addEventListener("mousemove", onMove);
-    raf.current = requestAnimationFrame(draw);
-    return () => {
-      cancelAnimationFrame(raf.current);
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("mousemove", onMove);
-    };
-  }, []);
-
-  return (
-    <canvas ref={canvasRef} style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }} />
-  );
-}
-
-// ── Floating label input — light enterprise style ────────────────────────────
+// ── Floating label input ───────────────────────────────────────────────────────
 function FloatInput({ label, type = "text", value, onChange, placeholder = "", autoFocus, children }) {
   const [focused, setFocused] = useState(false);
   const lifted = focused || value.length > 0;
-
   return (
-    <div style={{ position: "relative", marginBottom: 14 }}>
+    <div style={{ position: "relative", marginBottom: 12 }}>
       <label style={{
-        position: "absolute", left: 13, zIndex: 1, pointerEvents: "none",
+        position: "absolute", left: 12, zIndex: 1, pointerEvents: "none",
         top: lifted ? 7 : "50%",
         transform: lifted ? "none" : "translateY(-50%)",
-        fontSize: lifted ? 9 : 14,
+        fontSize: lifted ? 10 : 14,
         fontWeight: lifted ? 600 : 400,
-        letterSpacing: lifted ? "0.08em" : "0.01em",
+        letterSpacing: lifted ? "0.04em" : "-0.006em",
         textTransform: lifted ? "uppercase" : "none",
-        color: focused ? "#111827" : "#94a3b8",
+        color: focused ? "rgba(0,0,0,0.7)" : "#a39e98",
         fontFamily: "var(--font-ui)",
-        transition: "all 0.18s cubic-bezier(0.23,1,0.32,1)",
-        willChange: "top, font-size, transform",
+        transition: "all 0.15s cubic-bezier(0.23,1,0.32,1)",
+        willChange: "top, font-size",
       }}>{label}</label>
       <input
         type={type}
@@ -133,24 +74,25 @@ function FloatInput({ label, type = "text", value, onChange, placeholder = "", a
         placeholder={focused ? placeholder : ""}
         style={{
           width: "100%",
-          paddingTop: lifted ? 20 : 13,
-          paddingBottom: lifted ? 7 : 13,
-          paddingLeft: 13,
-          paddingRight: children ? 44 : 13,
+          paddingTop: lifted ? 19 : 12,
+          paddingBottom: lifted ? 7 : 12,
+          paddingLeft: 12,
+          paddingRight: children ? 40 : 12,
           background: "#ffffff",
-          border: `1.5px solid ${focused ? "#111827" : "#e2e8f0"}`,
-          borderRadius: 8,
-          color: "#111827",
+          border: `1px solid ${focused ? "#0075de" : "rgba(0,0,0,0.12)"}`,
+          borderRadius: 6,
+          color: "rgba(0,0,0,0.9)",
           fontFamily: "var(--font-ui)",
           fontSize: 14,
+          letterSpacing: "-0.006em",
           boxSizing: "border-box",
           outline: "none",
-          transition: "border-color 0.15s, box-shadow 0.15s",
-          boxShadow: focused ? "0 0 0 3px rgba(0,0,0,0.12)" : "none",
+          transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+          boxShadow: focused ? "0 0 0 3px rgba(0,117,222,0.16)" : "none",
         }}
       />
       {children && (
-        <div style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", zIndex: 2 }}>
+        <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", zIndex: 2 }}>
           {children}
         </div>
       )}
@@ -158,26 +100,26 @@ function FloatInput({ label, type = "text", value, onChange, placeholder = "", a
   );
 }
 
-// ── Floating label password — light enterprise style ──────────────────────────
+// ── Floating label password ────────────────────────────────────────────────────
 function FloatPassword({ label, value, onChange, showStrength }) {
   const [show, setShow] = useState(false);
   const [focused, setFocused] = useState(false);
   const lifted = focused || value.length > 0;
-
+  const strength = passwordStrength(value);
   return (
-    <div style={{ marginBottom: 14 }}>
+    <div style={{ marginBottom: 12 }}>
       <div style={{ position: "relative" }}>
         <label style={{
-          position: "absolute", left: 13, zIndex: 1, pointerEvents: "none",
+          position: "absolute", left: 12, zIndex: 1, pointerEvents: "none",
           top: lifted ? 7 : "50%",
           transform: lifted ? "none" : "translateY(-50%)",
-          fontSize: lifted ? 9 : 14,
+          fontSize: lifted ? 10 : 14,
           fontWeight: lifted ? 600 : 400,
-          letterSpacing: lifted ? "0.08em" : "0.01em",
+          letterSpacing: lifted ? "0.04em" : "-0.006em",
           textTransform: lifted ? "uppercase" : "none",
-          color: focused ? "#111827" : "#94a3b8",
+          color: focused ? "rgba(0,0,0,0.7)" : "#a39e98",
           fontFamily: "var(--font-ui)",
-          transition: "all 0.18s cubic-bezier(0.23,1,0.32,1)",
+          transition: "all 0.15s cubic-bezier(0.23,1,0.32,1)",
         }}>{label}</label>
         <input
           type={show ? "text" : "password"}
@@ -185,82 +127,93 @@ function FloatPassword({ label, value, onChange, showStrength }) {
           onChange={e => onChange(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          autoComplete="new-password"
           placeholder={focused ? "••••••••" : ""}
           style={{
             width: "100%",
-            paddingTop: lifted ? 20 : 13,
-            paddingBottom: lifted ? 7 : 13,
-            paddingLeft: 13,
-            paddingRight: 44,
+            paddingTop: lifted ? 19 : 12,
+            paddingBottom: lifted ? 7 : 12,
+            paddingLeft: 12,
+            paddingRight: 40,
             background: "#ffffff",
-            border: `1.5px solid ${focused ? "#111827" : "#e2e8f0"}`,
-            borderRadius: 8,
-            color: "#111827",
+            border: `1px solid ${focused ? "#0075de" : "rgba(0,0,0,0.12)"}`,
+            borderRadius: 6,
+            color: "rgba(0,0,0,0.9)",
             fontFamily: "var(--font-mono)",
             fontSize: 14,
             boxSizing: "border-box",
             outline: "none",
-            transition: "border-color 0.15s, box-shadow 0.15s",
-            boxShadow: focused ? "0 0 0 3px rgba(0,0,0,0.12)" : "none",
+            transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+            boxShadow: focused ? "0 0 0 3px rgba(0,117,222,0.16)" : "none",
           }}
         />
-        <button
-          type="button"
-          onClick={() => setShow(s => !s)}
-          tabIndex={-1}
-          style={{
-            position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
-            background: "none", border: "none", cursor: "pointer",
-            color: "#94a3b8", padding: 0, display: "flex",
-            transition: "color 0.15s",
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = "#111827"}
-          onMouseLeave={e => e.currentTarget.style.color = "#94a3b8"}
+        <button type="button" onClick={() => setShow(s => !s)} tabIndex={-1} style={{
+          position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+          background: "none", border: "none", cursor: "pointer",
+          color: "#a39e98", padding: 0, display: "flex", transition: "color 0.15s",
+        }}
+          onMouseEnter={e => e.currentTarget.style.color = "rgba(0,0,0,0.7)"}
+          onMouseLeave={e => e.currentTarget.style.color = "#a39e98"}
         >
           {show
-            ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
                 <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
                 <line x1="1" y1="1" x2="23" y2="23"/>
               </svg>
-            : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                 <circle cx="12" cy="12" r="3"/>
               </svg>
           }
         </button>
       </div>
-      {showStrength && <PasswordRequirements pw={value} />}
+      {/* Strength bar */}
+      {showStrength && value && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ height: 3, background: "rgba(0,0,0,0.07)", borderRadius: 9999, overflow: "hidden" }}>
+            <div style={{
+              height: "100%", borderRadius: 9999,
+              width: `${(strength.level / 5) * 100}%`,
+              background: strength.color,
+              transition: "width 0.3s cubic-bezier(0.23,1,0.32,1), background 0.3s ease",
+            }} />
+          </div>
+          <div style={{ marginTop: 4, fontSize: 11, color: strength.color, fontFamily: "var(--font-ui)", fontWeight: 500 }}>
+            {strength.label}
+          </div>
+          <PasswordRequirements pw={value} />
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Primary button — clean enterprise style ───────────────────────────────────
+// ── Primary button ─────────────────────────────────────────────────────────────
 function PrimaryBtn({ onClick, loading, children }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      style={{
-        width: "100%", padding: "11px",
-        background: loading ? "#e2e8f0" : "#111827",
-        color: loading ? "#94a3b8" : "#ffffff",
-        border: "none", borderRadius: 8,
-        fontFamily: "var(--font-ui)", fontWeight: 600,
-        fontSize: 14, letterSpacing: "0.01em",
-        cursor: loading ? "not-allowed" : "pointer",
-        transition: "background 0.15s, box-shadow 0.15s",
-        boxShadow: loading ? "none" : "0 1px 3px rgba(0,0,0,0.3)",
-        marginTop: 4,
-      }}
-      onMouseEnter={e => { if (!loading) e.currentTarget.style.background = "#1f2937"; }}
-      onMouseLeave={e => { if (!loading) e.currentTarget.style.background = "#111827"; }}
+    <button onClick={onClick} disabled={loading} style={{
+      width: "100%", padding: "10px 16px",
+      background: loading ? "rgba(0,0,0,0.06)" : "#0075de",
+      color: loading ? "#a39e98" : "#ffffff",
+      border: "none", borderRadius: 4,
+      fontFamily: "var(--font-ui)", fontWeight: 600,
+      fontSize: 14, letterSpacing: "-0.006em",
+      cursor: loading ? "not-allowed" : "pointer",
+      transition: "background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease",
+      boxShadow: loading ? "none" : "rgba(0,0,0,0.1) 0px 1px 3px, rgba(0,117,222,0.15) 0px 2px 8px",
+      marginTop: 6,
+    }}
+      onMouseEnter={e => { if (!loading) e.currentTarget.style.background = "#005bab"; }}
+      onMouseLeave={e => { if (!loading) e.currentTarget.style.background = "#0075de"; }}
+      onMouseDown={e  => { if (!loading) e.currentTarget.style.transform = "scale(0.98)"; }}
+      onMouseUp={e    => { e.currentTarget.style.transform = "scale(1)"; }}
     >
       {loading ? (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
           <span style={{
-            display: "inline-block", width: 13, height: 13, borderRadius: "50%",
-            border: "2px solid #cbd5e1", borderTopColor: "#475569",
+            display: "inline-block", width: 12, height: 12, borderRadius: "50%",
+            border: "2px solid rgba(0,0,0,0.12)", borderTopColor: "#a39e98",
             animation: "spin 0.7s linear infinite",
           }} />
           {children}
@@ -270,32 +223,27 @@ function PrimaryBtn({ onClick, loading, children }) {
   );
 }
 
-// ── Link-style button ─────────────────────────────────────────────────────────
-function LinkBtn({ children, onClick, accent }) {
+function LinkBtn({ children, onClick }) {
   return (
-    <span
-      onClick={onClick}
-      style={{
-        color: accent ? "#111827" : "#64748b",
-        fontSize: 13, fontFamily: "var(--font-ui)",
-        cursor: "pointer", fontWeight: accent ? 600 : 400,
-        transition: "color 0.15s",
-      }}
-      onMouseEnter={e => e.currentTarget.style.color = "#1f2937"}
-      onMouseLeave={e => e.currentTarget.style.color = accent ? "#111827" : "#64748b"}
+    <span onClick={onClick} style={{
+      color: "#0075de", fontSize: 13, fontFamily: "var(--font-ui)",
+      cursor: "pointer", fontWeight: 500, letterSpacing: "-0.006em",
+      transition: "color 0.15s",
+    }}
+      onMouseEnter={e => e.currentTarget.style.color = "#005bab"}
+      onMouseLeave={e => e.currentTarget.style.color = "#0075de"}
     >{children}</span>
   );
 }
 
-// ── Error / success banners ───────────────────────────────────────────────────
 function ErrMsg({ msg }) {
   if (!msg) return null;
   return (
     <div style={{
-      padding: "10px 14px", borderRadius: 8, marginBottom: 14,
-      background: "#fef2f2", border: "1px solid #fecaca",
-      color: "#dc2626", fontSize: 12, fontFamily: "var(--font-ui)",
-      animation: "slideUp 0.2s cubic-bezier(0.23,1,0.32,1)",
+      padding: "10px 12px", borderRadius: 6, marginBottom: 12,
+      background: "rgba(224,62,62,0.06)", border: "1px solid rgba(224,62,62,0.18)",
+      color: "#e03e3e", fontSize: 12, fontFamily: "var(--font-ui)", lineHeight: 1.5,
+      animation: "slideUp 0.18s cubic-bezier(0.23,1,0.32,1)",
     }}>{msg}</div>
   );
 }
@@ -303,15 +251,15 @@ function OkMsg({ msg }) {
   if (!msg) return null;
   return (
     <div style={{
-      padding: "10px 14px", borderRadius: 8, marginBottom: 14,
-      background: "#f0fdf4", border: "1px solid #bbf7d0",
-      color: "#16a34a", fontSize: 12, fontFamily: "var(--font-ui)",
-      animation: "slideUp 0.2s cubic-bezier(0.23,1,0.32,1)",
+      padding: "10px 12px", borderRadius: 6, marginBottom: 12,
+      background: "rgba(26,174,57,0.06)", border: "1px solid rgba(26,174,57,0.2)",
+      color: "#1aae39", fontSize: 12, fontFamily: "var(--font-ui)", lineHeight: 1.5,
+      animation: "slideUp 0.18s cubic-bezier(0.23,1,0.32,1)",
     }}>{msg}</div>
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main component ─────────────────────────────────────────────────────────────
 export default function AuthPage({ onAuth, initialResetToken = null, initialInviteToken = null }) {
   const initialTab = initialInviteToken ? "invite" : initialResetToken ? "reset" : "login";
   const [tab,         setTab]         = useState(initialTab);
@@ -330,19 +278,7 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
   const [mfaPending,  setMfaPending]  = useState(null);
   const [mfaCode,     setMfaCode]     = useState("");
   const [useBackup,   setUseBackup]   = useState(false);
-
-  // Entrance + form cross-fade
-  const [cardVisible, setCardVisible] = useState(false);
   const [formVisible, setFormVisible] = useState(true);
-
-  // Card tilt
-  const cardRef = useRef(null);
-  const tiltRAF = useRef(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setCardVisible(true), 60);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (initialInviteToken) {
@@ -356,39 +292,15 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
     }
   }, []);
 
-  // Card tilt effect
-  function onCardMouseMove(e) {
-    cancelAnimationFrame(tiltRAF.current);
-    tiltRAF.current = requestAnimationFrame(() => {
-      const card = cardRef.current;
-      if (!card) return;
-      const rect = card.getBoundingClientRect();
-      const rx = ((e.clientY - rect.top  - rect.height / 2) / (rect.height / 2)) * -3.5;
-      const ry = ((e.clientX - rect.left - rect.width  / 2) / (rect.width  / 2)) *  3.5;
-      card.style.transition = "transform 0.08s ease-out";
-      card.style.transform  = `perspective(1200px) rotateX(${rx}deg) rotateY(${ry}deg)`;
-    });
-  }
-  function onCardMouseLeave() {
-    cancelAnimationFrame(tiltRAF.current);
-    const card = cardRef.current;
-    if (!card) return;
-    card.style.transition = "transform 0.6s cubic-bezier(0.23,1,0.32,1)";
-    card.style.transform  = "perspective(1200px) rotateX(0deg) rotateY(0deg)";
-  }
-
   function switchTab(t) {
     setFormVisible(false);
     setTimeout(() => {
-      setTab(t);
-      setError(null); setSuccess(null);
+      setTab(t); setError(null); setSuccess(null);
       setName(""); setUsername(""); setEmail("");
       setPassword(""); setResetPw(""); setInvitePw("");
       setFormVisible(true);
-    }, 130);
+    }, 120);
   }
-
-  // ── API calls ──────────────────────────────────────────────────────────────
 
   async function handleLogin() {
     if (!username || !password) { setError("Please fill in all fields."); return; }
@@ -402,8 +314,7 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
       if (!res.ok) { setError(data.detail || "Login failed."); return; }
       if (data.mfa_required) {
         setMfaPending({ mfa_token: data.mfa_token });
-        setMfaCode(""); setUseBackup(false); setError(null);
-        return;
+        setMfaCode(""); setUseBackup(false); setError(null); return;
       }
       onAuth(data.token, data.user);
     } catch { setError("Unable to connect. Please try again."); }
@@ -444,7 +355,6 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
     if (!resetPw) { setError("Enter a new password."); return; }
     const pwErr = validatePassword(resetPw);
     if (pwErr) { setError(pwErr); return; }
-    if (!resetToken) { setError("Missing reset token. Use the link from your email."); return; }
     setLoading(true); setError(null);
     try {
       const res  = await fetch(`${API}/auth/reset-password`, {
@@ -464,7 +374,6 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
     if (username.length < 3) { setError("Username must be at least 3 characters."); return; }
     const pwErr = validatePassword(invitePw);
     if (pwErr) { setError(pwErr); return; }
-    if (!inviteToken) { setError("Missing invite token."); return; }
     setLoading(true); setError(null);
     try {
       const res  = await fetch(`${API}/auth/accept-invite`, {
@@ -478,19 +387,17 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
     finally  { setLoading(false); }
   }
 
-  // ── Form renderers ─────────────────────────────────────────────────────────
-
   function renderLogin() {
     return (
       <div onKeyDown={e => e.key === "Enter" && handleLogin()}>
         <FloatInput label="Username" value={username} onChange={setUsername} autoFocus />
         <FloatPassword label="Password" value={password} onChange={setPassword} />
-        <div style={{ textAlign: "right", marginTop: -2, marginBottom: 16 }}>
+        <div style={{ textAlign: "right", marginTop: -4, marginBottom: 14 }}>
           <LinkBtn onClick={() => switchTab("forgot")}>Forgot password?</LinkBtn>
         </div>
         <ErrMsg msg={error} /><OkMsg msg={success} />
         <PrimaryBtn onClick={handleLogin} loading={loading}>
-          {loading ? "Signing in…" : "Sign In →"}
+          {loading ? "Signing in…" : "Sign in"}
         </PrimaryBtn>
       </div>
     );
@@ -499,13 +406,13 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
   function renderForgot() {
     return (
       <div onKeyDown={e => e.key === "Enter" && handleForgot()}>
-        <p style={{ color: "#64748b", fontSize: 13, fontFamily: "var(--font-ui)", lineHeight: 1.6, marginBottom: 20, marginTop: 0 }}>
+        <p style={{ color: "#615d59", fontSize: 13, fontFamily: "var(--font-ui)", lineHeight: 1.6, marginBottom: 18, marginTop: 0, letterSpacing: "-0.006em" }}>
           Enter your email and we'll send a reset link if that account exists.
         </p>
-        <FloatInput label="Email" type="email" value={email} onChange={setEmail} autoFocus />
+        <FloatInput label="Email address" type="email" value={email} onChange={setEmail} autoFocus />
         <ErrMsg msg={error} /><OkMsg msg={success} />
         <PrimaryBtn onClick={handleForgot} loading={loading}>
-          {loading ? "Sending…" : "Send Reset Link →"}
+          {loading ? "Sending…" : "Send reset link"}
         </PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 14 }}>
           <LinkBtn onClick={() => switchTab("login")}>← Back to sign in</LinkBtn>
@@ -517,13 +424,13 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
   function renderReset() {
     return (
       <div onKeyDown={e => e.key === "Enter" && handleReset()}>
-        <p style={{ color: "#64748b", fontSize: 13, fontFamily: "var(--font-ui)", lineHeight: 1.6, marginBottom: 20, marginTop: 0 }}>
-          Enter your new password below.
+        <p style={{ color: "#615d59", fontSize: 13, fontFamily: "var(--font-ui)", lineHeight: 1.6, marginBottom: 18, marginTop: 0, letterSpacing: "-0.006em" }}>
+          Choose a strong password for your account.
         </p>
-        <FloatPassword label="New Password" value={resetPw} onChange={setResetPw} showStrength />
+        <FloatPassword label="New password" value={resetPw} onChange={setResetPw} showStrength />
         <ErrMsg msg={error} /><OkMsg msg={success} />
         <PrimaryBtn onClick={handleReset} loading={loading}>
-          {loading ? "Updating…" : "Set New Password →"}
+          {loading ? "Updating…" : "Set new password"}
         </PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 14 }}>
           <LinkBtn onClick={() => switchTab("login")}>← Back to sign in</LinkBtn>
@@ -537,22 +444,20 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
       <div onKeyDown={e => e.key === "Enter" && handleAcceptInvite()}>
         {inviteInfo && (
           <div style={{
-            padding: "10px 14px", borderRadius: 8, marginBottom: 18,
-            background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.18)",
-            fontFamily: "var(--font-ui)", fontSize: 12, color: "#475569", lineHeight: 1.6,
+            padding: "10px 12px", borderRadius: 6, marginBottom: 16,
+            background: "rgba(0,117,222,0.05)", border: "1px solid rgba(0,117,222,0.15)",
+            fontFamily: "var(--font-ui)", fontSize: 12, color: "#615d59", lineHeight: 1.6,
           }}>
-            Invited as{" "}
-            <strong style={{ color: "#111827", textTransform: "uppercase" }}>{inviteInfo.role}</strong>
-            {" "}for{" "}
-            <strong style={{ color: "#111827" }}>{inviteInfo.email}</strong>
+            Invited as <strong style={{ color: "#0075de", textTransform: "capitalize" }}>{inviteInfo.role}</strong>
+            {" · "}<strong style={{ color: "rgba(0,0,0,0.8)" }}>{inviteInfo.email}</strong>
           </div>
         )}
-        <FloatInput label="Full Name" value={name} onChange={setName} autoFocus />
+        <FloatInput label="Full name" value={name} onChange={setName} autoFocus />
         <FloatInput label="Username" value={username} onChange={setUsername} />
         <FloatPassword label="Password" value={invitePw} onChange={setInvitePw} showStrength />
         <ErrMsg msg={error} /><OkMsg msg={success} />
         <PrimaryBtn onClick={handleAcceptInvite} loading={loading}>
-          {loading ? "Setting up…" : "Complete Setup →"}
+          {loading ? "Setting up…" : "Complete setup"}
         </PrimaryBtn>
       </div>
     );
@@ -562,58 +467,58 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
     return (
       <div>
         <div style={{
-          display: "flex", alignItems: "center", gap: 10, marginBottom: 20,
-          padding: "12px 14px", borderRadius: 8,
-          background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.15)",
+          display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 20,
+          padding: "12px", borderRadius: 6,
+          background: "rgba(0,117,222,0.05)", border: "1px solid rgba(0,117,222,0.14)",
         }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0075de" strokeWidth="2" style={{ flexShrink:0, marginTop:1 }}>
             <rect x="5" y="11" width="14" height="10" rx="2"/>
             <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
           </svg>
-          <span style={{ fontSize: 12, fontFamily: "var(--font-ui)", color: "#475569", lineHeight: 1.5 }}>
+          <span style={{ fontSize: 12, fontFamily: "var(--font-ui)", color: "#615d59", lineHeight: 1.5, letterSpacing: "-0.006em" }}>
             {useBackup ? "Enter one of your 8-character backup codes." : "Enter the 6-digit code from your authenticator app."}
           </span>
         </div>
 
         <label style={{
-          display: "block", color: "#94a3b8", fontSize: 9, fontWeight: 700,
-          letterSpacing: "0.12em", marginBottom: 8, textTransform: "uppercase",
+          display: "block", color: "#a39e98", fontSize: 10, fontWeight: 600,
+          letterSpacing: "0.04em", marginBottom: 8, textTransform: "uppercase",
           fontFamily: "var(--font-ui)",
         }}>
-          {useBackup ? "Backup Code" : "Authenticator Code"}
+          {useBackup ? "Backup code" : "Authenticator code"}
         </label>
         <input
           autoFocus
           type="text"
           inputMode={useBackup ? "text" : "numeric"}
-          placeholder={useBackup ? "XXXXXXXX" : "000000"}
+          placeholder={useBackup ? "XXXXXXXX" : "000 000"}
           maxLength={useBackup ? 8 : 6}
           value={mfaCode}
           onChange={e => setMfaCode(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleMfaVerify()}
           style={{
-            width: "100%", letterSpacing: "0.4em", textAlign: "center",
+            width: "100%", letterSpacing: "0.3em", textAlign: "center",
             fontSize: 28, fontFamily: "var(--font-mono)", fontWeight: 600,
             paddingTop: 16, paddingBottom: 16,
             background: "#ffffff",
-            border: "1.5px solid #e2e8f0",
-            borderRadius: 8, color: "#111827", boxSizing: "border-box",
+            border: "1px solid rgba(0,0,0,0.12)",
+            borderRadius: 6, color: "rgba(0,0,0,0.9)", boxSizing: "border-box",
             outline: "none", marginBottom: 14,
-            transition: "border-color 0.15s, box-shadow 0.15s",
+            transition: "border-color 0.15s ease, box-shadow 0.15s ease",
           }}
-          onFocus={e => { e.target.style.borderColor = "#111827"; e.target.style.boxShadow = "0 0 0 3px rgba(0,0,0,0.12)"; }}
-          onBlur={e  => { e.target.style.borderColor = "#e2e8f0"; e.target.style.boxShadow = "none"; }}
+          onFocus={e => { e.target.style.borderColor = "#0075de"; e.target.style.boxShadow = "0 0 0 3px rgba(0,117,222,0.16)"; }}
+          onBlur={e  => { e.target.style.borderColor = "rgba(0,0,0,0.12)"; e.target.style.boxShadow = "none"; }}
         />
 
-        <div style={{ textAlign: "center", marginBottom: 16 }}>
+        <div style={{ textAlign: "center", marginBottom: 14 }}>
           <LinkBtn onClick={() => { setUseBackup(b => !b); setMfaCode(""); setError(null); }}>
-            {useBackup ? "← Use authenticator app instead" : "Use a backup code instead"}
+            {useBackup ? "← Use authenticator app" : "Use a backup code instead"}
           </LinkBtn>
         </div>
 
         <ErrMsg msg={error} />
         <PrimaryBtn onClick={handleMfaVerify} loading={loading}>
-          {loading ? "Verifying…" : "Verify Identity →"}
+          {loading ? "Verifying…" : "Verify identity"}
         </PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 14 }}>
           <LinkBtn onClick={() => { setMfaPending(null); setError(null); setMfaCode(""); }}>
@@ -624,87 +529,78 @@ export default function AuthPage({ onAuth, initialResetToken = null, initialInvi
     );
   }
 
-  // ── Determine what to render ───────────────────────────────────────────────
-
   const isMfa = !!mfaPending;
 
-  const formTitle =
-    isMfa              ? "Verify Identity"
-    : tab === "forgot" ? "Reset Password"
-    : tab === "reset"  ? "Set New Password"
-    : tab === "invite" ? "Complete Setup"
-    : null;
+  const headings = {
+    login:  { title: "Sign in",         sub: "Welcome back to Vanguard" },
+    forgot: { title: "Reset password",  sub: "We'll send a link to your email" },
+    reset:  { title: "New password",    sub: "Choose a strong password" },
+    invite: { title: "Create account",  sub: "Complete your team invitation" },
+    mfa:    { title: "Verify identity", sub: "Two-factor authentication" },
+  };
+  const h = isMfa ? headings.mfa : headings[tab] || headings.login;
 
-  const formContent =
-    isMfa              ? renderMfa()
+  const formContent = isMfa ? renderMfa()
     : tab === "login"  ? renderLogin()
     : tab === "forgot" ? renderForgot()
     : tab === "reset"  ? renderReset()
     : tab === "invite" ? renderInvite()
     : null;
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{
       minHeight: "100vh",
-      background: "#f9fafb",
+      background: "#f6f5f4",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       padding: "40px 20px",
     }}>
-      {/* Centered card */}
       <div style={{
-        width: "100%", maxWidth: 420,
-        animation: "floatIn 0.35s cubic-bezier(0.23,1,0.32,1) both",
+        width: "100%", maxWidth: 400,
+        animation: "floatIn 0.32s cubic-bezier(0.23,1,0.32,1) both",
       }}>
         {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32, justifyContent: "center" }}>
-          <img src="/favicon.svg" width={36} height={36} alt="Vanguard" />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28, justifyContent: "center" }}>
+          <img src="/favicon.svg" width={32} height={32} alt="Vanguard" />
           <div>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "#111827", letterSpacing: "0.01em" }}>VANGUARD</div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#9ca3af", letterSpacing: "0.1em" }}>// CSPM</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "rgba(0,0,0,0.9)", letterSpacing: "-0.02em" }}>Vanguard</div>
+            <div style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "#a39e98", letterSpacing: "-0.006em" }}>Cloud Security Platform</div>
           </div>
         </div>
 
-        {/* Card */}
+        {/* Card — Notion whisper border + multi-layer shadow */}
         <div style={{
           background: "#ffffff",
-          border: "1px solid #e5e7eb",
+          border: "1px solid rgba(0,0,0,0.1)",
           borderRadius: 12,
-          padding: "32px 36px 36px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+          padding: "28px 32px 32px",
+          boxShadow: "rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.847px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04px",
         }}>
-          {/* Heading */}
-          <div style={{ marginBottom: 28 }}>
+          {/* Heading — Notion typography: negative letter-spacing, weight 700 */}
+          <div style={{ marginBottom: 24 }}>
             <h2 style={{
               fontFamily: "var(--font-display)", fontWeight: 700,
-              fontSize: 20, color: "#111827",
-              letterSpacing: "-0.02em", margin: "0 0 5px 0",
-            }}>
-              {isMfa ? "Verify identity" : tab === "forgot" ? "Reset password" : tab === "reset" ? "Set new password" : tab === "invite" ? "Complete setup" : "Sign in"}
-            </h2>
-            <p style={{ fontFamily: "var(--font-ui)", fontSize: 13, color: "#6b7280", margin: 0 }}>
-              {isMfa ? "Enter your 6-digit authenticator code"
-               : tab === "login"  ? "Sign in to your Vanguard account"
-               : tab === "forgot" ? "We'll send a reset link to your email"
-               : tab === "reset"  ? "Choose a strong password"
-               : "Create your Vanguard account"}
+              fontSize: 22, color: "rgba(0,0,0,0.9)",
+              letterSpacing: "-0.03em", margin: "0 0 4px 0", lineHeight: 1.2,
+            }}>{h.title}</h2>
+            <p style={{ fontFamily: "var(--font-ui)", fontSize: 13, color: "#615d59", margin: 0, letterSpacing: "-0.006em", lineHeight: 1.5 }}>
+              {h.sub}
             </p>
           </div>
 
-          {/* Form content */}
+          {/* Form — cross-fade between tabs */}
           <div style={{
             opacity: formVisible ? 1 : 0,
-            transform: formVisible ? "translateY(0)" : "translateY(4px)",
-            transition: "opacity 0.15s, transform 0.15s",
+            transform: formVisible ? "translateY(0)" : "translateY(3px)",
+            transition: "opacity 0.12s ease, transform 0.12s ease",
           }}>
             {formContent}
           </div>
         </div>
 
-        <div style={{ textAlign: "center", marginTop: 20, fontFamily: "var(--font-mono)", fontSize: 10, color: "#d1d5db", letterSpacing: "0.06em" }}>
-          © 2025 Vanguard CSPM · Enterprise Edition
+        <div style={{ textAlign: "center", marginTop: 20, fontFamily: "var(--font-ui)", fontSize: 11, color: "rgba(0,0,0,0.25)", letterSpacing: "-0.006em" }}>
+          © 2025 Vanguard CSPM
         </div>
       </div>
     </div>

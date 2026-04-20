@@ -93,8 +93,10 @@ function InviteUserModal({ token, onClose }) {
 
   const inp = {
     width: "100%", background: "var(--card)", border: "1px solid var(--border)",
-    borderRadius: 7, padding: "9px 12px", color: "var(--accent)",
-    fontFamily: "var(--font-mono)", fontSize: 13, boxSizing: "border-box", outline: "none",
+    borderRadius: 6, padding: "9px 12px", color: "var(--accent)",
+    fontFamily: "var(--font-ui)", fontSize: 13, letterSpacing: "-0.006em",
+    boxSizing: "border-box", outline: "none",
+    transition: "border-color 0.15s ease, box-shadow 0.15s ease",
   };
   const lbl = {
     display: "block", color: "var(--accent3)", fontSize: 10, fontWeight: 700,
@@ -230,7 +232,7 @@ function InviteUserModal({ token, onClose }) {
                 <div style={{
                   padding: "8px 12px", borderRadius: 6, marginBottom: 14,
                   background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.25)",
-                  color: "#e05555", fontSize: 12, fontFamily: "var(--font-mono)",
+                  color: "#b54545", fontSize: 12, fontFamily: "var(--font-ui)", letterSpacing: "-0.006em",
                 }}>{error}</div>
               )}
 
@@ -291,7 +293,7 @@ function DeleteConfirmModal({ user, token, onDeleted, onClose }) {
         animation: "modalIn 0.25s cubic-bezier(0.23, 1, 0.32, 1)",
       }}>
         <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 14, color: "#e05555" }}>
+          <div style={{ fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 14, color: "#b54545" }}>
             Delete User
           </div>
         </div>
@@ -299,14 +301,14 @@ function DeleteConfirmModal({ user, token, onDeleted, onClose }) {
           <p style={{ fontFamily: "var(--font-ui)", fontSize: 13, color: "var(--accent3)", margin: "0 0 8px", lineHeight: 1.6 }}>
             Permanently delete <strong style={{ color: "var(--accent)" }}>{user.name}</strong> ({user.email})?
           </p>
-          <p style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "#e05555", margin: "0 0 20px" }}>
+          <p style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "#b54545", margin: "0 0 20px" }}>
             This will also delete all their accounts, scans, and findings. This cannot be undone.
           </p>
           {error && (
             <div style={{
               padding: "8px 12px", borderRadius: 6, marginBottom: 14,
               background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.25)",
-              color: "#e05555", fontSize: 12, fontFamily: "var(--font-mono)",
+              color: "#b54545", fontSize: 12, fontFamily: "var(--font-ui)", letterSpacing: "-0.006em",
             }}>{error}</div>
           )}
           <div style={{ display: "flex", gap: 10 }}>
@@ -500,7 +502,8 @@ function ResetPasswordModal({ targetUser, token, onClose }) {
   const inp = {
     width: "100%", background: "var(--card)", border: "1px solid var(--border)",
     borderRadius: 6, padding: "9px 12px", color: "var(--accent)",
-    fontFamily: "var(--font-mono)", fontSize: 13, boxSizing: "border-box", outline: "none",
+    fontFamily: "var(--font-ui)", fontSize: 13, letterSpacing: "-0.006em", boxSizing: "border-box", outline: "none",
+    transition: "border-color 0.15s ease, box-shadow 0.15s ease",
   };
   const lbl = {
     display: "block", color: "var(--accent3)", fontSize: 10, fontWeight: 700,
@@ -588,7 +591,7 @@ function ResetPasswordModal({ targetUser, token, onClose }) {
                 <div style={{
                   padding: "8px 12px", borderRadius: 6, marginBottom: 14,
                   background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.25)",
-                  color: "#e05555", fontSize: 12, fontFamily: "var(--font-mono)",
+                  color: "#b54545", fontSize: 12, fontFamily: "var(--font-ui)", letterSpacing: "-0.006em",
                 }}>{error}</div>
               )}
 
@@ -716,7 +719,7 @@ export default function UsersPage({ token, currentUser }) {
 
   if (currentUser?.role !== "superadmin") return (
     <div style={{ padding: "60px 32px", textAlign: "center", color: "var(--accent3)",
-                  fontFamily: "var(--font-mono)", fontSize: "13px" }}>
+                  fontFamily: "var(--font-ui)", fontSize: "13px", letterSpacing: "-0.006em" }}>
       <div style={{ fontSize: 32, marginBottom: 16 }}>⛔</div>
       Superadmin access required.
     </div>
@@ -726,7 +729,7 @@ export default function UsersPage({ token, currentUser }) {
   );
   if (error) return (
     <div style={{ padding: 40 }}>
-      <div style={{ padding: "12px 16px", borderRadius: 8, maxWidth: 480, background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.25)", color: "#e05555", fontFamily: "var(--font-mono)", fontSize: 13 }}>{error}</div>
+      <div style={{ padding: "12px 16px", borderRadius: 8, maxWidth: 480, background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.25)", color: "#b54545", fontFamily: "var(--font-ui)", fontSize: 13, letterSpacing: "-0.006em" }}>{error}</div>
     </div>
   );
 
@@ -758,13 +761,13 @@ export default function UsersPage({ token, currentUser }) {
         <button onClick={() => setShowInvite(true)} style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "9px 18px", borderRadius: 12, cursor: "pointer",
-          background: "#111827", border: "none",
+          background: "rgba(0,0,0,0.9)", border: "none",
           color: "#ffffff", fontFamily: "var(--font-ui)", fontWeight: 500,
           fontSize: 13, letterSpacing: "0.14px", transition: "background 0.15s",
           boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.28) 0px 1px 3px",
         }}
           onMouseEnter={e => e.currentTarget.style.background = "#254fad"}
-          onMouseLeave={e => e.currentTarget.style.background = "#111827"}
+          onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.9)"}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -812,9 +815,9 @@ export default function UsersPage({ token, currentUser }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "var(--font-ui)", fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>
                   {u.name || "—"}
                   {isSelf && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(123,140,222,0.15)", border: "1px solid rgba(123,140,222,0.3)", color: "#7b8cde", letterSpacing: "0.08em" }}>YOU</span>}
-                  {expired && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(224,85,85,0.12)", border: "1px solid rgba(224,85,85,0.3)", color: "#e05555" }}>EXPIRED</span>}
+                  {expired && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(224,85,85,0.12)", border: "1px solid rgba(224,85,85,0.3)", color: "#b54545" }}>EXPIRED</span>}
                 </div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--accent3)", marginTop: 2 }}>{u.email}</div>
+                <div style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--accent3)", marginTop: 2, letterSpacing: "-0.004em" }}>{u.email}</div>
                 <div style={{ fontFamily: "var(--font-ui)", fontSize: 10, color: "var(--accent3)", marginTop: 1 }}>
                   Joined {formatDate(u.created_at)} · {u.account_count ?? 0} acct · {u.scan_count ?? 0} scans
                 </div>
@@ -834,7 +837,7 @@ export default function UsersPage({ token, currentUser }) {
                     cursor: isSelf ? "default" : "pointer",
                     border: `1px solid ${u.is_active ? "rgba(76,175,125,0.4)" : "rgba(224,85,85,0.4)"}`,
                     background: u.is_active ? "rgba(76,175,125,0.1)" : "rgba(224,85,85,0.1)",
-                    color: u.is_active ? "#4caf7d" : "#e05555",
+                    color: u.is_active ? "#4caf7d" : "#b54545",
                     fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700,
                     letterSpacing: "0.06em", textTransform: "uppercase",
                     opacity: isSelf ? 0.7 : 1,
@@ -857,8 +860,8 @@ export default function UsersPage({ token, currentUser }) {
                            style={{
                              background: "var(--card)", border: "1px solid var(--border)",
                              borderRadius: 5, padding: "4px 6px",
-                             color: expired ? "#e05555" : "var(--accent)",
-                             fontFamily: "var(--font-mono)", fontSize: 10,
+                             color: expired ? "#b54545" : "var(--accent)",
+                             fontFamily: "var(--font-ui)", fontSize: 10,
                              colorScheme: "dark", outline: "none",
                              width: "100%", maxWidth: 120, minWidth: 0,
                            }} />
@@ -901,7 +904,7 @@ export default function UsersPage({ token, currentUser }) {
                   </div>
                 )}
                 {rs.roleSuccess && <div style={{ fontSize: 10, color: "#4caf7d", fontFamily: "var(--font-ui)", marginTop: 3 }}>{rs.roleSuccess}</div>}
-                {rs.roleError   && <div style={{ fontSize: 10, color: "#e05555", fontFamily: "var(--font-ui)", marginTop: 3 }}>{rs.roleError}</div>}
+                {rs.roleError   && <div style={{ fontSize: 10, color: "#b54545", fontFamily: "var(--font-ui)", marginTop: 3 }}>{rs.roleError}</div>}
               </div>
 
               {/* MFA status */}

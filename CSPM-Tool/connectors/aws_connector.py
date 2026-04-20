@@ -202,6 +202,11 @@ class AWSConnector:
                 except (ClientError, EndpointConnectionError):
                     data["region"] = "us-east-1"
 
+                # Only scan buckets in the configured region so that accounts
+                # scoped to different regions produce independent findings.
+                if data["region"] != self.region:
+                    continue
+
                 # Public access block
                 try:
                     pab = s3.get_public_access_block(Bucket=name)["PublicAccessBlockConfiguration"]

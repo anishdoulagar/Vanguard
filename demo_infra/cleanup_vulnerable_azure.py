@@ -28,16 +28,30 @@ if not all([TENANT_ID, CLIENT_ID, CLIENT_SECRET, SUBSCRIPTION_ID]):
 
 suffix = rg_name = None
 
-if "--suffix" in sys.argv:
+SCRIPTS = pathlib.Path(__file__).parent
+
+if "--rg" in sys.argv:
+    rg_name = sys.argv[sys.argv.index("--rg") + 1]
+    suffix = rg_name  # just for display
+elif "--suffix" in sys.argv:
     suffix = sys.argv[sys.argv.index("--suffix") + 1]
     rg_name = f"cspm-demo-rg-{suffix}"
-else:
+elif "--team" in sys.argv:
+    team = sys.argv[sys.argv.index("--team") + 1]
     try:
-        lines = open("demo_infra/.azure_demo_suffix").read().strip().split("\n")
+        lines = (SCRIPTS / f".azure_demo_suffix_{team}").read_text().strip().split("\n")
         suffix  = lines[0]
         rg_name = lines[2] if len(lines) > 2 else f"cspm-demo-rg-{suffix}"
     except FileNotFoundError:
-        print("ERROR: No .azure_demo_suffix file found. Use --suffix <suffix>")
+        print(f"ERROR: No .azure_demo_suffix_{team} file. Run deploy_vulnerable_azure.py --team {team} first.")
+        sys.exit(1)
+else:
+    try:
+        lines = (SCRIPTS / ".azure_demo_suffix").read_text().strip().split("\n")
+        suffix  = lines[0]
+        rg_name = lines[2] if len(lines) > 2 else f"cspm-demo-rg-{suffix}"
+    except FileNotFoundError:
+        print("ERROR: No .azure_demo_suffix file found. Use --rg <rg>, --team <team>, or --suffix <suffix>")
         sys.exit(1)
 
 print(f"Deleting resource group: {rg_name}")

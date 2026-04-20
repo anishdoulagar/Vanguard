@@ -119,8 +119,8 @@ export default function TeamUsersPage({ token, currentUser }) {
 
   if (currentUser?.role !== "admin" && currentUser?.role !== "superadmin") return (
     <div style={{ padding: "60px 32px", textAlign: "center", color: "var(--accent3)",
-                  fontFamily: "var(--font-mono)", fontSize: "13px" }}>
-      <div style={{ fontSize: 32, marginBottom: 16 }}>⛔</div>
+                  fontFamily: "var(--font-ui)", fontSize: "13px", letterSpacing: "-0.006em" }}>
+      <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.4 }}>⛔</div>
       Admin access required.
     </div>
   );
@@ -137,12 +137,12 @@ export default function TeamUsersPage({ token, currentUser }) {
             <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
           </svg>
           <h1 style={{
-            fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800,
-            color: "var(--accent)", margin: 0, letterSpacing: "0.04em",
-          }}>My Team's Users</h1>
+            fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700,
+            color: "rgba(0,0,0,0.9)", margin: 0, letterSpacing: "-0.03em", lineHeight: 1.2,
+          }}>My Team</h1>
         </div>
-        <p style={{ color: "var(--accent3)", fontSize: 13, fontFamily: "var(--font-ui)", margin: 0 }}>
-          All members across your teams — manage team assignments in the Teams page
+        <p style={{ color: "var(--accent3)", fontSize: 13, fontFamily: "var(--font-ui)", margin: 0, letterSpacing: "-0.006em" }}>
+          All members across your teams — manage assignments in the Teams page
         </p>
       </div>
 
@@ -180,7 +180,8 @@ export default function TeamUsersPage({ token, currentUser }) {
             style={{
               flex: 1, background: "var(--card)", border: "1px solid var(--border)",
               borderRadius: 7, padding: "8px 12px", color: "var(--accent)",
-              fontFamily: "var(--font-mono)", fontSize: 12, outline: "none",
+              fontFamily: "var(--font-ui)", fontSize: 13, outline: "none",
+              letterSpacing: "-0.006em",
             }}
           />
           <div style={{ display: "flex", gap: 6 }}>
@@ -212,7 +213,7 @@ export default function TeamUsersPage({ token, currentUser }) {
         </div>
       )}
       {error && (
-        <div style={{ padding: "12px 16px", borderRadius: 8, maxWidth: 480, background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.25)", color: "#e05555", fontFamily: "var(--font-mono)", fontSize: 13 }}>
+        <div style={{ padding: "12px 16px", borderRadius: 8, maxWidth: 480, background: "rgba(181,69,69,0.06)", border: "1px solid rgba(181,69,69,0.18)", color: "#b54545", fontFamily: "var(--font-ui)", fontSize: 13, letterSpacing: "-0.006em" }}>
           {error}
         </div>
       )}
@@ -223,7 +224,7 @@ export default function TeamUsersPage({ token, currentUser }) {
           {/* Column headers */}
           <div style={{
             display: "grid", gridTemplateColumns: "1fr 140px 100px 80px 160px",
-            padding: "10px 20px", borderBottom: "1px solid var(--border)", background: "rgba(0,0,0,0.2)",
+            padding: "10px 20px", borderBottom: "1px solid var(--border)", background: "var(--surface)",
           }}>
             {["USER", "ROLE", "STATUS", "MFA", "JOINED"].map(h => (
               <div key={h} style={{ fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, color: "var(--accent3)", letterSpacing: "0.1em" }}>{h}</div>
@@ -267,9 +268,9 @@ export default function TeamUsersPage({ token, currentUser }) {
                           background: "rgba(224,85,85,0.12)", border: "1px solid rgba(224,85,85,0.3)", color: "#e05555" }}>EXPIRED</span>
                       )}
                     </div>
-                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--accent3)", marginTop: 2 }}>{u.email}</div>
+                    <div style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--accent3)", marginTop: 2, letterSpacing: "-0.004em" }}>{u.email}</div>
                     {u.username && (
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--accent3)", opacity: 0.7 }}>@{u.username}</div>
+                      <div style={{ fontFamily: "var(--font-ui)", fontSize: 10, color: "var(--accent3)", opacity: 0.7, letterSpacing: "-0.004em" }}>@{u.username}</div>
                     )}
                   </div>
                 </div>

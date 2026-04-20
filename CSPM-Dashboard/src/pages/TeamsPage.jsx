@@ -20,29 +20,31 @@ const S = {
   },
   label: {
     display: "block", color: "var(--accent3)", fontSize: "10px",
-    letterSpacing: "0.08em", marginBottom: 5, fontWeight: 600,
-    textTransform: "uppercase",
+    letterSpacing: "0.04em", marginBottom: 5, fontWeight: 600,
+    textTransform: "uppercase", fontFamily: "var(--font-ui)",
   },
   input: {
-    width: "100%", background: "var(--surface)",
-    border: "1px solid var(--border)", borderRadius: "var(--radius)",
-    padding: "10px 13px", color: "var(--accent)",
-    fontFamily: "var(--font-mono)", fontSize: 13, boxSizing: "border-box",
+    width: "100%", background: "var(--card)",
+    border: "1px solid var(--border)", borderRadius: 6,
+    padding: "9px 12px", color: "var(--accent)",
+    fontFamily: "var(--font-ui)", fontSize: 13, letterSpacing: "-0.006em",
+    boxSizing: "border-box", outline: "none",
+    transition: "border-color 0.15s ease, box-shadow 0.15s ease",
   },
 };
 
 function RoleBadge({ role }) {
   const colors = {
-    superadmin: { bg: "rgba(191,90,242,0.10)",  border: "rgba(191,90,242,0.30)",  color: "var(--magenta)" },
-    admin:      { bg: "rgba(0,113,227,0.10)",    border: "rgba(0,113,227,0.30)",   color: "var(--cyan)"    },
-    analyst:    { bg: "rgba(52,199,89,0.10)",    border: "rgba(52,199,89,0.30)",   color: "var(--green)"   },
-    viewer:     { bg: "rgba(128,128,128,0.12)",  border: "rgba(128,128,128,0.25)", color: "var(--accent2)" },
+    superadmin: { bg: "rgba(75,123,201,0.10)",  border: "rgba(75,123,201,0.25)",  color: "#4b7bc9" },
+    admin:      { bg: "rgba(75,123,201,0.07)",   border: "rgba(75,123,201,0.18)",  color: "#5a6fa8" },
+    analyst:    { bg: "rgba(58,138,96,0.09)",    border: "rgba(58,138,96,0.22)",   color: "#3a8a60" },
+    viewer:     { bg: "rgba(0,0,0,0.04)",        border: "rgba(0,0,0,0.1)",        color: "var(--accent2)" },
   };
   const c = colors[role] || colors.viewer;
   return (
     <span style={{
-      padding: "2px 7px", borderRadius: 4, fontSize: 9, fontWeight: 700,
-      letterSpacing: "0.07em", textTransform: "uppercase",
+      padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600,
+      letterSpacing: "0.01em", textTransform: "capitalize", fontFamily: "var(--font-ui)",
       background: c.bg, border: `1px solid ${c.border}`, color: c.color,
     }}>{role}</span>
   );
@@ -206,7 +208,7 @@ function AddMemberModal({ token, team, allUsers, existingMemberIds, onAdded, onC
 
 // ── Team Card ─────────────────────────────────────────────────────────────────
 
-function TeamCard({ team, token, isSuperadmin, allUsers, onDeleted }) {
+function TeamCard({ team, token, isSuperadmin, currentUserId, allUsers, onDeleted }) {
   const [expanded, setExpanded]         = useState(false);
   const [members, setMembers]           = useState(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -254,9 +256,6 @@ function TeamCard({ team, token, isSuperadmin, allUsers, onDeleted }) {
     } catch {}
     finally { setDeleting(false); setConfirmDelete(false); }
   }
-
-  const canManageMembers = isSuperadmin ||
-    (members !== null && members.some(m => String(m.user_id)));  // admin is always member
 
   const memberIds = new Set((members || []).map(m => String(m.user_id)));
 
@@ -362,11 +361,15 @@ function TeamCard({ team, token, isSuperadmin, allUsers, onDeleted }) {
                       <div style={{ fontSize: 11, color: "var(--accent3)" }}>{m.email}</div>
                     </div>
                     <RoleBadge role={m.role} />
-                    <button className="btn-ghost" style={{ padding: "3px 9px", fontSize: 10 }}
-                      onClick={() => removeMember(String(m.user_id))}
-                      disabled={removingId === String(m.user_id)}>
-                      {removingId === String(m.user_id) ? "…" : "Remove"}
-                    </button>
+                    {/* Don't show Remove for self, or for admin/superadmin targets when caller is not superadmin */}
+                    {String(m.user_id) !== currentUserId &&
+                      (isSuperadmin || !["admin", "superadmin"].includes(m.role)) && (
+                      <button className="btn-ghost" style={{ padding: "3px 9px", fontSize: 10 }}
+                        onClick={() => removeMember(String(m.user_id))}
+                        disabled={removingId === String(m.user_id)}>
+                        {removingId === String(m.user_id) ? "…" : "Remove"}
+                      </button>
+                    )}
                   </div>
                 ))}
                 <button className="btn-ghost" style={{ marginTop: 12, padding: "6px 14px", fontSize: 11 }}
@@ -424,8 +427,8 @@ export default function TeamsPage({ token, user }) {
 
   if (user?.role !== "superadmin" && user?.role !== "admin") return (
     <div style={{ padding: "60px 32px", textAlign: "center", color: "var(--accent3)",
-                  fontFamily: "var(--font-mono)", fontSize: "13px" }}>
-      <div style={{ fontSize: 32, marginBottom: 16 }}>⛔</div>
+                  fontFamily: "var(--font-ui)", fontSize: "13px", letterSpacing: "-0.006em" }}>
+      <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.4 }}>⛔</div>
       Admin access required.
     </div>
   );
@@ -436,10 +439,10 @@ export default function TeamsPage({ token, user }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
         <div>
           <h1 style={{
-            fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700,
-            color: "var(--accent)", margin: 0, letterSpacing: "0.04em",
+            fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700,
+            color: "rgba(0,0,0,0.9)", margin: 0, letterSpacing: "-0.03em", lineHeight: 1.2,
           }}>Teams</h1>
-          <p style={{ fontSize: 12, color: "var(--accent3)", marginTop: 4 }}>
+          <p style={{ fontSize: 13, color: "var(--accent3)", marginTop: 4, fontFamily: "var(--font-ui)", letterSpacing: "-0.006em" }}>
             {isSuperadmin
               ? "Create and manage teams. Each team scopes cloud accounts and members."
               : "Teams you belong to and their members."}
@@ -503,6 +506,7 @@ export default function TeamsPage({ token, user }) {
               team={team}
               token={token}
               isSuperadmin={isSuperadmin}
+              currentUserId={String(user?.id)}
               allUsers={allUsers}
               onDeleted={id => setTeams(t => t.filter(x => x.id !== id))}
             />

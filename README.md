@@ -32,7 +32,7 @@ Vanguard continuously scans your AWS and Azure environments for security misconf
   ─────────────────    →    ──────────────────    →    ──────
   AWS · Azure               Scan → Score → Alert       Dashboard
   Hundreds of resources     345+ built-in rules        Real-time findings
-  Any region                Custom rules support       Email alerts
+  Multiple teams            Multi-team RBAC            Email alerts
 ```
 
 ---
@@ -41,15 +41,17 @@ Vanguard continuously scans your AWS and Azure environments for security misconf
 
 | | Feature | Description |
 |---|---|---|
-| 🔍 | **Multi-Cloud Scanning** | AWS and Azure with 345+ built-in security rules |
-| 📊 | **Security Scoring** | Per-service and overall posture score (0–100) |
+| 🔍 | **Multi-Cloud Scanning** | AWS and Azure with 345+ built-in security rules across CIS, NIST, PCI-DSS, SOC 2, ISO 27001, GDPR, HIPAA |
+| 📊 | **Security Scoring** | Per-account posture score (0–100) weighted by finding severity |
 | 📈 | **Scan History** | Track posture over time, compare changes between scans |
-| 📤 | **Export Reports** | Download findings as CSV or JSON per scan |
-| ⚙️ | **Custom Rules** | Write your own compliance checks |
-| ⏱️ | **Scheduled Scanning** | Automatic background scans — set it and forget it |
-| 🔔 | **Smart Alerting** | System-wide alerts (superadmin) + per-user per-account alerts |
-| 🔐 | **Role-Based Access** | Four roles with fine-grained permissions |
+| 👥 | **Multi-Team RBAC** | Teams with four roles — superadmin, admin, analyst, viewer. Each team sees only their own accounts |
+| 🔐 | **MFA Support** | TOTP-based two-factor authentication for all user accounts |
+| ⏱️ | **Scheduled Scanning** | Automatic background scans at configurable intervals |
+| 🔔 | **Smart Alerting** | Per-account alert thresholds with email notifications |
 | 📋 | **Audit Log** | Every action logged with user, timestamp, and IP |
+| ⚙️ | **Custom Rules** | Write your own compliance checks on top of the built-in library |
+| 📤 | **Export Reports** | Download findings as CSV or JSON per scan |
+| 🧪 | **Demo Automation** | One-command deploy/destroy of multi-team demo environments across 3 security profiles |
 
 ---
 
@@ -57,13 +59,13 @@ Vanguard continuously scans your AWS and Azure environments for security misconf
 
 ```
 SUPERADMIN  ──────────────────────────────────────────────────────  Full access
-   │         User management · System alerts · All accounts · All data
+   │         User management · System alerts · All teams · All accounts
    │
 ADMIN  ────────────────────────────────────────────────────────────  Team lead
-   │         All scans · All accounts · Configure per-account alerts
+   │         All scans · All accounts within team · Configure alerts
    │
 ANALYST  ──────────────────────────────────────────────────────────  Operator
-   │         Run scans · Manage accounts · Configure own alerts
+   │         Run scans · Manage accounts · View findings
    │
 VIEWER  ───────────────────────────────────────────────────────────  Read-only
              View results · See alert status · No edits
@@ -342,25 +344,58 @@ Dashboard is live at `http://localhost:5173`.
 
 ## Demo Infrastructure
 
-Want to test Vanguard against real (intentionally misconfigured) cloud resources? The `demo_infra/` directory has a one-command deploy/destroy CLI.
+The `demo_infra/` directory provides a complete one-command system to deploy intentionally misconfigured cloud environments for testing and presentations. It creates three teams with different security profiles across both AWS and Azure, provisions Vanguard with users and accounts automatically, and tears everything down cleanly when you're done.
+
+### Full Multi-Team Demo (recommended for presentations)
+
+Deploys 6 cloud environments (3 AWS + 3 Azure) across three teams with different security postures, then provisions Vanguard with teams, users, and accounts automatically.
 
 ```bash
-# 1. Copy the credential template and fill in your values
+# 1. Copy and fill in your credentials
 cp demo_infra/.env.example demo_infra/.env
 
-# 2. Deploy intentionally vulnerable resources
+# 2. Deploy everything (~15–25 min)
+python3 demo_infra/demo_manager.py demo
+
+# 3. Tear everything down when done
+python3 demo_infra/demo_destroy_all.py --yes
+```
+
+**What gets deployed:**
+
+| Team | AWS Region | Azure Resource Group | Profile | Expected Score |
+|---|---|---|---|---|
+| Demo Alpha — Financial | us-east-1 | cspm-demo-alpha | Secure | 85–95 |
+| Demo Beta — Operations | us-west-2 | cspm-demo-beta | Moderate | 60–72 |
+| Demo Gamma — Legacy | eu-west-1 | cspm-demo-gamma | Vulnerable | 25–40 |
+
+**Demo users created automatically** (password: `VanguardDemo2024!`):
+
+| Username | Role | Team Access |
+|---|---|---|
+| alice_demo | Superadmin | All teams |
+| bob_demo | Admin | Team Alpha only |
+| carol_demo | Analyst | Team Alpha only |
+| dave_demo | Admin | Team Beta only |
+| eve_demo | Analyst | Team Beta only |
+| frank_demo | Admin | Team Gamma only |
+
+### Single Environment Deploy
+
+```bash
+# Deploy one environment at a time
 python3 demo_infra/demo_manager.py deploy azure   # ~5 min · ~$0.05/hr
 python3 demo_infra/demo_manager.py deploy aws     # ~3 min · ~$0.01/hr
 
-# 3. Check what's running
+# Check what's running
 python3 demo_infra/demo_manager.py status
 
-# 4. Destroy when done (stops billing)
+# Destroy when done (stops billing)
 python3 demo_infra/demo_manager.py destroy azure
 python3 demo_infra/demo_manager.py destroy aws
 ```
 
-See [`demo_infra/README.md`](demo_infra/README.md) for credential setup instructions and the full list of expected findings.
+See [`demo_infra/README.md`](demo_infra/README.md) for credential setup instructions and the full list of expected findings per profile.
 
 ---
 
@@ -372,8 +407,8 @@ Add credentials in the dashboard under **Accounts → Add Account**:
 
 | Cloud | What you need |
 |-------|--------------|
-| **AWS** | Access Key ID + Secret Access Key |
-| **Azure** | Tenant ID + Client ID + Client Secret (Service Principal) |
+| **AWS** | Access Key ID + Secret Access Key + Region |
+| **Azure** | Tenant ID + Client ID + Client Secret (Service Principal) + Subscription ID |
 
 ### Email Alerts _(optional)_
 
@@ -396,7 +431,7 @@ SMTP_FROM=you@example.com
 │  Frontend      React 18 · Vite · Recharts               │
 │  Backend       FastAPI · Python · asyncio               │
 │  Database      PostgreSQL 16                            │
-│  Auth          JWT (HS256) · bcrypt · Role middleware   │
+│  Auth          JWT (HS256) · bcrypt · TOTP MFA          │
 │  Infra         Docker · Docker Compose · Nginx (prod)  │
 │  Cloud SDKs    boto3 (AWS) · azure-sdk (Azure)         │
 └─────────────────────────────────────────────────────────┘
@@ -408,32 +443,55 @@ SMTP_FROM=you@example.com
 
 ```
 Vanguard/
-├── CSPM-Tool/                  # Backend
-│   ├── api/server.py           # All REST endpoints
-│   ├── auth/                   # JWT · bcrypt · role guards
-│   ├── connectors/             # AWS + Azure SDK collectors
-│   ├── database/               # Schema · models · migrations
-│   ├── policies/               # 345+ built-in rules + custom rules
-│   ├── scheduler/              # Background scan engine
-│   └── scoring/                # Posture score algorithm
+├── CSPM-Tool/                    # Backend
+│   ├── api/server.py             # All REST endpoints
+│   ├── auth/                     # JWT · bcrypt · TOTP MFA · role guards
+│   ├── connectors/
+│   │   ├── aws_connector.py      # Scans 30+ AWS services via boto3
+│   │   └── azure_connector.py    # Scans 25+ Azure services via azure-sdk
+│   ├── database/                 # Schema · models · connection pooling
+│   ├── policies/
+│   │   ├── aws_rules.py          # 200+ AWS security rules
+│   │   ├── azure_rules.py        # 137+ Azure security rules
+│   │   └── custom_rules.py       # User-defined rules
+│   ├── notifications/
+│   │   ├── email_engine.py       # SMTP email alerts
+│   │   └── slack_engine.py       # Slack webhook notifications
+│   ├── scheduler/engine.py       # Background scan scheduler
+│   └── scoring/risk_scorer.py    # 0–100 posture score algorithm
 │
-├── CSPM-Dashboard/             # Frontend
-│   └── src/pages/              # Dashboard · History · Alerts · Policies · Admin
+├── CSPM-Dashboard/               # Frontend (React + Vite)
+│   └── src/pages/
+│       ├── DashboardPage.jsx     # Overview · scores · findings summary
+│       ├── AccountsPage.jsx      # Manage cloud account connections
+│       ├── PoliciesPage.jsx      # Browse all 345+ rules by framework
+│       ├── HistoryPage.jsx       # Scan history · score trends
+│       ├── AlertsPage.jsx        # Alert thresholds · notification config
+│       ├── AuditPage.jsx         # Full user action audit log
+│       ├── UsersPage.jsx         # User management (superadmin)
+│       ├── TeamsPage.jsx         # Team management (superadmin)
+│       └── AuthPage.jsx          # Login · MFA · registration
 │
-├── demo_infra/                 # One-command demo environment
-│   ├── demo_manager.py         # deploy / destroy / status CLI
-│   ├── .env.example            # Credential template (copy → .env)
-│   └── README.md               # Demo infra instructions
+├── demo_infra/                   # Demo environment automation
+│   ├── demo_manager.py           # Main CLI: deploy / destroy / status / demo
+│   ├── demo_full.py              # Full 3-team × 2-cloud orchestrator
+│   ├── demo_destroy_all.py       # Full teardown (cloud + Vanguard data)
+│   ├── vanguard_api.py           # REST client for Vanguard provisioning
+│   ├── deploy_vulnerable_aws.py  # AWS deploy (secure / moderate / vulnerable)
+│   ├── deploy_vulnerable_azure.py# Azure deploy (secure / moderate / vulnerable)
+│   ├── deploy_azure_missing.py   # Azure extras: Key Vault, SQL, VM
+│   ├── cleanup_vulnerable_aws.py # AWS teardown
+│   ├── cleanup_vulnerable_azure.py# Azure teardown
+│   ├── load_env.py               # .env loader for demo scripts
+│   ├── .env.example              # Credential template (copy → .env)
+│   └── README.md                 # Demo infra setup guide
 │
 ├── scripts/
-│   ├── setup.sh                # One-command setup (Mac/Linux)
-│   └── generate_keys.py        # Secret key generator
+│   ├── setup.sh                  # One-command setup (Mac/Linux + Docker)
+│   └── generate_keys.py          # Secret key generator
 │
-├── docs/
-│   └── generate_ppt.py         # Presentation generator
-│
-├── docker-compose.yml          # Orchestration
-└── .env.example                # Environment template
+├── docker-compose.yml            # Container orchestration
+└── .env.example                  # Root environment template
 ```
 
 ---

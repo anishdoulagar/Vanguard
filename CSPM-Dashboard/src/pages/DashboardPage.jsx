@@ -9,16 +9,16 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 /* ── Palette & helpers ──────────────────────────────────────────────────────── */
 const S = {
-  CRITICAL: { color: "#111827", bg: "rgba(0,0,0,0.07)",  label: "CRITICAL" },
-  HIGH:     { color: "#374151", bg: "rgba(0,0,0,0.04)",  label: "HIGH" },
-  MEDIUM:   { color: "#6b7280", bg: "rgba(0,0,0,0.03)",  label: "MEDIUM" },
-  LOW:      { color: "#9ca3af", bg: "rgba(0,0,0,0.02)",  label: "LOW" },
+  CRITICAL: { color: "#b54545", bg: "rgba(181,69,69,0.07)",   label: "CRITICAL" },
+  HIGH:     { color: "#b06c2a", bg: "rgba(176,108,42,0.07)",  label: "HIGH" },
+  MEDIUM:   { color: "#9a7d18", bg: "rgba(154,125,24,0.07)",  label: "MEDIUM" },
+  LOW:      { color: "#3a8a60", bg: "rgba(58,138,96,0.07)",   label: "LOW" },
 };
 const SEV_LIST = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
 function sColor(s) {
-  if (s == null) return "#9ca3af";
-  return s >= 80 ? "#6b7280" : s >= 60 ? "#4b5563" : s >= 40 ? "#1f2937" : "#111827";
+  if (s == null) return "#a39e98";
+  return s >= 80 ? "#3a8a60" : s >= 60 ? "#9a7d18" : s >= 40 ? "#b06c2a" : "#b54545";
 }
 function sLabel(s) {
   if (s == null) return "N/A";
@@ -204,7 +204,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
     return true;
   }), [findings, sevPick, statusPick, search, statuses]);
 
-  const trendColors = ["#111827", "#374151", "#6b7280", "#9ca3af", "#d1d5db"];
+  const trendColors = ["#4b7bc9", "#7a9dbf", "#9aafbf", "#b8c8d0", "#d4dce0"];
 
   /* ── Layout uses a 12-col mental grid ─────────────────────────────────────── */
   const font = (size, weight = 400) => ({
@@ -232,9 +232,9 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                     marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <div>
-          <h1 style={{ margin: 0, ...font(18, 700), fontFamily: "var(--font-display)",
-                       letterSpacing: "0.04em", color: "var(--accent)" }}>
-            SECURITY OVERVIEW
+          <h1 style={{ margin: 0, ...font(20, 700), fontFamily: "var(--font-display)",
+                       letterSpacing: "-0.03em", color: "rgba(0,0,0,0.9)", lineHeight: 1.2 }}>
+            Security Overview
           </h1>
           <div style={{ ...mono(11), color: "var(--accent3)", marginTop: 4 }}>
             {loading ? "Loading..." :
@@ -246,9 +246,9 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
             <button key={v} onClick={() => setRange(v)} style={{
               padding: "5px 11px", borderRadius: 6, ...font(10, 600),
               letterSpacing: "0.07em", cursor: "pointer",
-              border: range === v ? "1px solid var(--cyan)" : "1px solid var(--border)",
-              background: range === v ? "var(--cyan)" : "transparent",
-              color: range === v ? "var(--bg)" : "var(--accent3)",
+              border: range === v ? "1px solid #0075de" : "1px solid rgba(0,0,0,0.1)",
+              background: range === v ? "#0075de" : "transparent",
+              color: range === v ? "#ffffff" : "var(--accent3)",
               transition: "border-color 0.15s, background 0.15s, color 0.15s",
             }}>{l}</button>
           ))}
@@ -265,8 +265,8 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                 style={{
                   padding: "5px 14px", borderRadius: 6, ...font(10, 700),
                   letterSpacing: "0.06em", cursor: bulkScan ? "wait" : "pointer",
-                  border: "none", color: "var(--bg)",
-                  background: "var(--cyan)", opacity: bulkScan ? 0.6 : 1,
+                  border: "none", color: "#ffffff",
+                  background: "#0075de", opacity: bulkScan ? 0.6 : 1,
                   transition: "opacity 0.15s",
                 }}>{bulkScan ? "SCANNING…" : "SCAN ALL"}</button>
             </>
@@ -292,7 +292,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
         {/* Score hero */}
         <div style={{
           background: "var(--card)", borderRadius: 12,
-          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(0,0,0,0.18) 0px 1px 4px",
+          boxShadow: "rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.847px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04px",
           padding: "24px 28px", display: "flex", flexDirection: "column",
           justifyContent: "center", alignItems: "center", position: "relative",
         }}>
@@ -329,19 +329,19 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
           {/* Accounts card */}
           <div style={{
             background: "var(--card)", borderRadius: 12,
-            boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(0,0,0,0.18) 0px 1px 4px",
+            boxShadow: "rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.847px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04px",
             padding: "18px 16px", display: "flex", flexDirection: "column", justifyContent: "space-between",
           }}>
             <div style={{ ...font(9, 700), color: "var(--accent3)", letterSpacing: "0.12em" }}>ACCOUNTS</div>
             <div style={{
               fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 900,
-              color: "var(--blue)", lineHeight: 1, margin: "8px 0",
+              color: "#0075de", lineHeight: 1, margin: "8px 0",
             }}>{nAccounts}</div>
             <div style={{ ...mono(10), color: "var(--accent3)" }}>{nScanned} scanned</div>
             <div style={{ marginTop: 8, height: 3, background: "var(--border)", borderRadius: 2 }}>
               <div style={{ height: "100%", borderRadius: 2, transition: "width 0.6s",
                 width: nAccounts > 0 ? `${(nScanned / nAccounts) * 100}%` : "0%",
-                background: "var(--blue)" }} />
+                background: "#0075de" }} />
             </div>
           </div>
 
@@ -442,13 +442,13 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                 <div key={name} style={{ marginBottom: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
                     <span style={{ ...font(12, 600), color: "var(--accent)" }}>{name}</span>
-                    <span style={{ ...mono(11), color: "var(--cyan)", fontWeight: 700 }}>{count}</span>
+                    <span style={{ ...mono(11), color: "#0075de", fontWeight: 700 }}>{count}</span>
                   </div>
                   <div style={{ height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
                     <div style={{
                       height: "100%", borderRadius: 2, transition: "width 0.5s",
                       width: `${(count / max) * 100}%`,
-                      background: "#111827",
+                      background: "#0075de",
                     }} />
                   </div>
                 </div>
@@ -472,8 +472,8 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
             {canScan && (
               <button onClick={scanAll} disabled={bulkScan} style={{
                 padding: "4px 10px", borderRadius: 5, ...font(9, 700),
-                border: "1px solid var(--cyan)", background: "var(--cyan)",
-                color: "var(--bg)", cursor: bulkScan ? "wait" : "pointer",
+                border: "none", background: "#0075de",
+                color: "#ffffff", cursor: bulkScan ? "wait" : "pointer",
                 letterSpacing: "0.06em", opacity: bulkScan ? 0.5 : 1,
               }}>{bulkScan ? "…" : "SCAN ALL"}</button>
             )}
@@ -495,7 +495,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
                   display: "flex", alignItems: "center", gap: 14,
                   transition: "background 0.15s",
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                onMouseEnter={e => e.currentTarget.style.background = "#f6f5f4"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
 
                   {/* Cloud indicator */}
@@ -578,7 +578,7 @@ export default function DashboardPage({ token, role, onScanComplete, onNavigate,
       {trend.length > 1 && (
         <div style={{
           background: "var(--card)", borderRadius: 12,
-          boxShadow: "rgba(0,0,0,0.32) 0px 0px 1px, rgba(0,0,0,0.08) 0px 0px 2px, rgba(0,0,0,0.18) 0px 1px 4px",
+          boxShadow: "rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.847px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04px",
           marginBottom: 14, padding: "16px 18px 8px",
         }}>
           <div style={{ ...font(10, 700), color: "var(--accent3)", letterSpacing: "0.12em",

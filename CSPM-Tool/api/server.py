@@ -121,6 +121,24 @@ def _friendly_cloud_error(e: Exception, cloud: str = "") -> str:
     return "An unexpected error occurred while connecting to your cloud account. Please verify your credentials."
 
 
+# ── Password policy ───────────────────────────────────────────────────────────
+
+import re as _re
+
+def _validate_password_policy(password: str) -> None:
+    """Enforce enterprise password policy; raises 422 on violation."""
+    if not password or len(password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
+    if len(password.encode()) > 72:
+        raise HTTPException(status_code=422, detail="Password must be 72 characters or fewer.")
+    if not _re.search(r'[A-Z]', password):
+        raise HTTPException(status_code=422, detail="Password must contain at least one uppercase letter (A–Z).")
+    if not _re.search(r'[a-z]', password):
+        raise HTTPException(status_code=422, detail="Password must contain at least one lowercase letter (a–z).")
+    if not _re.search(r'[^A-Za-z0-9]', password):
+        raise HTTPException(status_code=422, detail="Password must contain at least one special character (!@#$%^&*…).")
+
+
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
@@ -193,6 +211,7 @@ class CreateAccountRequest(BaseModel):
     tenant_id:           Optional[str] = None
     client_id:           Optional[str] = None
     client_secret:       Optional[str] = None
+    resource_group:      Optional[str] = None
 
 
 class CreateTeamRequest(BaseModel):
@@ -243,6 +262,8 @@ class AlertSettingsRequest(BaseModel):
     alert_on_medium:      bool = False
     alert_on_new_finding: bool = False
     enabled:              bool = True
+    slack_webhook_url:    str | None = None
+    slack_enabled:        bool = False
 
     def validate_threshold(self):
         if not (0 <= self.score_threshold <= 100):
@@ -269,9 +290,10 @@ class UpdateRoleRequest(BaseModel):
     role: str
 
 class AdminInviteRequest(BaseModel):
-    email:       str
-    role:        str           = "analyst"
-    team_id:     Optional[str] = None  # required when admin belongs to multiple teams
+    email:            str
+    role:             str           = "analyst"
+    team_id:          Optional[str] = None  # required when admin belongs to multiple teams
+    always_return_url: bool         = False  # if True, return invite_url even when email was sent
 
 class AcceptInviteRequest(BaseModel):
     token:    str
@@ -340,6 +362,7 @@ async def _run_scan_engine(cloud: str, aws_creds: dict = None,
             tenant_id=azure_creds["tenant_id"],
             client_id=azure_creds["client_id"],
             client_secret=azure_creds["client_secret"],
+            rg_filter=azure_creds.get("resource_group") or None,
         )
         collect_tasks.append(loop.run_in_executor(None, azure_connector.collect_all))
         task_labels.append("azure")
@@ -484,10 +507,7 @@ async def signup(req: SignupRequest, conn=Depends(get_conn)):
         raise HTTPException(status_code=409, detail="Username already taken.")
     if await get_user_by_email(conn, req.email):
         raise HTTPException(status_code=409, detail="Email already registered.")
-    if len(req.password) < 8:
-        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
-    if len(req.password.encode()) > 72:
-        raise HTTPException(status_code=422, detail="Password must be 72 characters or fewer.")
+    _validate_password_policy(req.password)
 
     # First user ever → automatically becomes superadmin
     is_first_user = (await get_user_count(conn)) == 0
@@ -752,12 +772,16 @@ async def reset_password(req: ResetPasswordRequest, conn=Depends(get_conn)):
     if now > expires:
         raise HTTPException(status_code=400, detail="Reset token has expired.")
 
-    if len(req.new_password) < 8:
-        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
+    _validate_password_policy(req.new_password)
 
-    hashed = hash_password(req.new_password)
-    await update_user_password(conn, str(record["user_id"]), hashed)
-    await mark_reset_token_used(conn, str(record["id"]))
+    # Use a transaction to prevent race-condition double-use of the same token
+    async with conn.transaction():
+        fresh = await get_reset_token(conn, req.token)
+        if not fresh or fresh["used"]:
+            raise HTTPException(status_code=400, detail="Reset token has already been used.")
+        hashed = hash_password(req.new_password)
+        await update_user_password(conn, str(fresh["user_id"]), hashed)
+        await mark_reset_token_used(conn, str(fresh["id"]))
     return {"status": "ok", "message": "Password updated successfully."}
 
 
@@ -946,7 +970,8 @@ async def add_account(req: CreateAccountRequest, request: Request,
             raise HTTPException(status_code=422,
                 detail="Azure requires subscription_id, tenant_id, client_id, client_secret.")
         creds = {"subscription_id": req.subscription_id, "tenant_id": req.tenant_id,
-                 "client_id": req.client_id, "client_secret": req.client_secret}
+                 "client_id": req.client_id, "client_secret": req.client_secret,
+                 "resource_group": req.resource_group or ""}
     else:
         raise HTTPException(status_code=422, detail="cloud must be 'aws' or 'azure'.")
 
@@ -1319,11 +1344,188 @@ async def scan_all_accounts(
 # ── Scan History ──────────────────────────────────────────────────────────────
 
 @app.get("/scans")
-async def list_scans(account_id: Optional[str] = None, limit: int = 20,
-                      user=Depends(get_current_user), conn=Depends(get_conn)):
-    role = user.get("role", "analyst")
-    scans = await get_scans_for_user(conn, str(user["id"]), account_id, limit, role=role)
+async def list_scans(
+    account_id: Optional[str] = None,
+    limit: int = 100,
+    date_from: Optional[str] = None,
+    date_to:   Optional[str] = None,
+    cloud:     Optional[str] = None,
+    user=Depends(get_current_user), conn=Depends(get_conn),
+):
+    from datetime import datetime as _dt
+    role  = user.get("role", "analyst")
+    since = None
+    until = None
+    try:
+        if date_from:
+            since = _dt.fromisoformat(date_from.replace("Z", "+00:00"))
+        if date_to:
+            # include the full end day
+            end = _dt.fromisoformat(date_to.replace("Z", "+00:00"))
+            from datetime import timedelta as _td
+            until = end + _td(days=1)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid date format. Use ISO 8601 (YYYY-MM-DD).")
+    scans = await get_scans_for_user(
+        conn, str(user["id"]), account_id, limit,
+        since=since, until=until, cloud=cloud or None, role=role,
+    )
     return {"scans": scans}
+
+
+@app.get("/scans/export")
+async def export_scans(
+    format:     str = "csv",
+    date_from:  Optional[str] = None,
+    date_to:    Optional[str] = None,
+    cloud:      Optional[str] = None,
+    account_id: Optional[str] = None,
+    service:    Optional[str] = None,
+    severity:   Optional[str] = None,
+    user=Depends(get_current_user), conn=Depends(get_conn),
+):
+    """
+    Export findings from multiple scans with optional filters.
+    Respects team scoping — non-superadmins only see their team's accounts.
+    CSV columns: timestamp, account, cloud, score, severity, service, rule_id,
+                 resource_name, resource_id, message, remediation, frameworks, status
+    """
+    from fastapi.responses import StreamingResponse
+    from datetime import datetime as _dt, timedelta as _td
+    import io, csv as _csv, json as _json
+
+    role  = user.get("role", "analyst")
+    since = None
+    until = None
+    try:
+        if date_from:
+            since = _dt.fromisoformat(date_from.replace("Z", "+00:00"))
+        if date_to:
+            end   = _dt.fromisoformat(date_to.replace("Z", "+00:00"))
+            until = end + _td(days=1)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid date format. Use ISO 8601 (YYYY-MM-DD).")
+
+    if format not in ("csv", "json"):
+        raise HTTPException(status_code=422, detail="format must be 'csv' or 'json'.")
+
+    # ── Build team-scoped query that includes findings JSON ────────────────────
+    conditions: list[str] = []
+    params: list = []
+
+    def p(v):
+        params.append(v)
+        return f"${len(params)}"
+
+    if account_id:
+        if role != "superadmin":
+            ok = await conn.fetchval(
+                """SELECT 1 FROM cloud_accounts WHERE id=$1
+                   AND team_id IN (SELECT team_id FROM team_members WHERE user_id=$2)""",
+                account_id, str(user["id"]),
+            )
+            if not ok:
+                raise HTTPException(status_code=403, detail="Access denied.")
+        conditions.append(f"sr.account_id = {p(account_id)}")
+    elif role != "superadmin":
+        conditions.append(
+            f"sr.account_id IN ("
+            f"  SELECT id FROM cloud_accounts"
+            f"  WHERE team_id IN (SELECT team_id FROM team_members WHERE user_id = {p(str(user['id']))})"
+            f")"
+        )
+
+    if cloud:
+        conditions.append(f"sr.cloud = {p(cloud)}")
+    if since:
+        conditions.append(f"sr.created_at >= {p(since)}")
+    if until:
+        conditions.append(f"sr.created_at <= {p(until)}")
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    sql = f"""
+        SELECT sr.id, sr.cloud, sr.scores, sr.created_at, sr.finding_counts,
+               sr.findings, ca.name AS account_name
+        FROM scan_results sr
+        LEFT JOIN cloud_accounts ca ON ca.id = sr.account_id
+        {where}
+        ORDER BY sr.created_at DESC
+        LIMIT 2000
+    """
+    rows = await conn.fetch(sql, *params)
+
+    # ── Flatten findings with optional service/severity filter ─────────────────
+    svc_filter = (service or "").strip().lower()
+    sev_filter = set(s.strip().upper() for s in severity.split(",") if s.strip()) if severity else set()
+
+    all_findings = []
+    for row in rows:
+        raw = row["findings"]
+        if isinstance(raw, str):
+            try:
+                findings = _json.loads(raw)
+            except Exception:
+                findings = []
+        else:
+            findings = raw or []
+
+        sc     = row["scores"] or {}
+        score  = sc.get("overall") or sc.get("aws") or sc.get("azure")
+        ts     = row["created_at"]
+        ts_str = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
+
+        for f in findings:
+            if svc_filter and svc_filter not in (f.get("service") or "").lower():
+                continue
+            if sev_filter and (f.get("severity") or "").upper() not in sev_filter:
+                continue
+            all_findings.append({
+                "timestamp":     ts_str,
+                "account":       row["account_name"] or "",
+                "cloud":         row["cloud"] or "",
+                "score":         score,
+                "severity":      f.get("severity", ""),
+                "service":       f.get("service", ""),
+                "rule_id":       f.get("rule_id", ""),
+                "resource_name": f.get("resource_name", ""),
+                "resource_id":   f.get("resource_id", ""),
+                "message":       f.get("message", ""),
+                "remediation":   f.get("remediation", ""),
+                "frameworks":    "|".join(f.get("frameworks") or []),
+                "status":        f.get("status", "open"),
+            })
+
+    date_range = f"{date_from or 'all'}-to-{date_to or 'all'}"
+    filename   = f"cspm-findings-{date_range}"
+
+    if format == "json":
+        content = _json.dumps({"findings": all_findings, "total": len(all_findings)}, indent=2)
+        return StreamingResponse(
+            io.BytesIO(content.encode()),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.json"'},
+        )
+
+    output = io.StringIO()
+    writer = _csv.writer(output)
+    writer.writerow([
+        "timestamp", "account", "cloud", "score", "severity", "service",
+        "rule_id", "resource_name", "resource_id", "message", "remediation",
+        "frameworks", "status",
+    ])
+    for f in all_findings:
+        writer.writerow([
+            f["timestamp"], f["account"], f["cloud"], f["score"],
+            f["severity"], f["service"], f["rule_id"], f["resource_name"],
+            f["resource_id"], f["message"], f["remediation"],
+            f["frameworks"], f["status"],
+        ])
+
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode()),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
+    )
 
 
 @app.get("/scans/{scan_id}")
@@ -1622,6 +1824,11 @@ async def save_alert_settings(
 
     # Enforce field permissions: only admin+ can set medium/new_finding alerts
     can_advanced = role in ("admin", "superadmin")
+
+    slack_url = (req.slack_webhook_url or "").strip() or None
+    if slack_url and not slack_url.startswith("https://hooks.slack.com/"):
+        raise HTTPException(status_code=422, detail="Invalid Slack webhook URL.")
+
     settings = await upsert_alert_settings(
         conn,
         user_id=str(user["id"]),
@@ -1633,6 +1840,8 @@ async def save_alert_settings(
         alert_on_medium=req.alert_on_medium if can_advanced else False,
         alert_on_new_finding=req.alert_on_new_finding if can_advanced else False,
         enabled=req.enabled,
+        slack_webhook_url=slack_url,
+        slack_enabled=req.slack_enabled,
     )
     return {"settings": settings}
 
@@ -1688,6 +1897,34 @@ async def send_test_alert(
     if not sent:
         raise HTTPException(status_code=500, detail="Failed to send test email.")
     return {"status": "sent", "to": settings["email"]}
+
+
+@app.post("/alerts/test-slack/{account_id}")
+async def send_test_slack_alert(
+    account_id: str,
+    user=Depends(require_role("analyst")), conn=Depends(get_conn)
+):
+    """Send a test Slack message to verify the configured webhook."""
+    from notifications.slack_engine import test_slack_webhook
+
+    account = await get_account(conn, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found.")
+    if user.get("role") != "superadmin":
+        if account.get("team_id"):
+            if not await is_member_of_team(conn, str(account["team_id"]), str(user["id"])):
+                raise HTTPException(status_code=403, detail="Access denied.")
+        else:
+            raise HTTPException(status_code=403, detail="Access denied.")
+
+    settings = await get_alert_settings(conn, str(user["id"]), account_id)
+    if not settings or not settings.get("slack_webhook_url"):
+        raise HTTPException(status_code=404, detail="No Slack webhook URL configured for this account.")
+
+    result = test_slack_webhook(settings["slack_webhook_url"])
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result.get("error", "Slack test failed."))
+    return {"status": "sent"}
 
 
 @app.get("/system-alerts/settings")
@@ -1768,8 +2005,7 @@ async def admin_force_reset_password(
     """Force-reset a user's password. Superadmin: anyone. Admin: only their team members (analyst/viewer)."""
     if target_user_id == str(user["id"]):
         raise HTTPException(status_code=400, detail="Use account settings to change your own password.")
-    if len(req.new_password) < 8:
-        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
+    _validate_password_policy(req.new_password)
     target = await get_user_by_id(conn, target_user_id)
     if not target:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -1839,7 +2075,7 @@ async def admin_invite_user(
     return {
         "email":      req.email,
         "role":       req.role,
-        "invite_url": None if email_sent else invite_url,
+        "invite_url": invite_url if (not email_sent or req.always_return_url) else None,
         "email_sent": email_sent,
     }
 
@@ -1870,8 +2106,7 @@ async def accept_invite(req: AcceptInviteRequest, conn=Depends(get_conn)):
         raise HTTPException(status_code=422, detail="Username must be at least 3 characters.")
     if not req.name or len(req.name.strip()) < 1:
         raise HTTPException(status_code=422, detail="Name is required.")
-    if len(req.password) < 8:
-        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
+    _validate_password_policy(req.password)
     if await get_user_by_username(conn, req.username):
         raise HTTPException(status_code=409, detail="Username already taken.")
     if await get_user_by_email(conn, row["email"]):
@@ -2199,10 +2434,18 @@ async def remove_member_route(
     user=Depends(require_role("admin")),
     conn=Depends(get_conn),
 ):
-    """Superadmin: remove anyone from any team. Admin: only from their own teams."""
-    if user.get("role") != "superadmin":
+    """Superadmin: remove anyone from any team. Admin: only from their own teams (analysts/viewers only)."""
+    if target_user_id == str(user["id"]):
+        raise HTTPException(status_code=400, detail="You cannot remove yourself from a team.")
+    caller_role = user.get("role")
+    if caller_role != "superadmin":
         if not await is_member_of_team(conn, team_id, str(user["id"])):
             raise HTTPException(status_code=403, detail="Access denied — not a member of this team.")
+        # Admins can only remove analysts/viewers, not other admins or superadmins
+        target_member = await get_user_by_id(conn, target_user_id)
+        if target_member and target_member.get("role") in ("admin", "superadmin"):
+            raise HTTPException(status_code=403,
+                detail="You cannot remove an admin or superadmin from a team.")
     removed = await remove_team_member(conn, team_id, target_user_id)
     if not removed:
         raise HTTPException(status_code=404, detail="Member not found in team.")

@@ -3,70 +3,88 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VANGUARD // CSPM</title>
+    <title>Vanguard CSPM</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
       :root {
-        /* ── Vanguard Enterprise — Monochrome ── */
+        /* ── Notion warm canvas ── */
         --bg:       #ffffff;
-        --surface:  #f9fafb;
+        --surface:  #f6f5f4;
         --card:     #ffffff;
-        --border:   #e5e7eb;
+        --border:   rgba(0,0,0,0.09);
 
-        /* ── Text — gray scale ── */
-        --accent:   #111827;
-        --accent2:  #374151;
-        --accent3:  #9ca3af;
+        /* ── Text — warm gray scale ── */
+        --accent:   rgba(0,0,0,0.9);
+        --accent2:  #615d59;
+        --accent3:  #a39e98;
 
-        /* ── Single brand: near-black ── */
-        --cyan:     #111827;
-        --blue:     #111827;
-        --purple:   #374151;
-        --magenta:  #374151;
+        /* ── Soft blue — primary interactive ── */
+        --cyan:     #4b7bc9;
+        --blue:     #4b7bc9;
+        --purple:   #5a6fa8;
+        --magenta:  #7a8fa8;
 
-        /* ── Severity — functional only (badges, alerts) ── */
-        --green:    #16a34a;
-        --red:      #dc2626;
-        --orange:   #ea580c;
-        --yellow:   #ca8a04;
+        /* ── Semantic — muted, functional only ── */
+        --green:    #3a8a60;
+        --red:      #b54545;
+        --orange:   #b06c2a;
+        --yellow:   #9a7d18;
 
-        /* ── Shadows ── */
-        --shadow-card:  0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-        --shadow-md:    0 4px 12px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
-        --shadow-soft:  0 8px 24px rgba(0,0,0,0.06);
-        --glow-cyan:    0 0 0 3px rgba(0,0,0,0.12);
+        /* ── Notion multi-layer shadows ── */
+        --shadow-card: rgba(0,0,0,0.04) 0px 4px 18px,
+                       rgba(0,0,0,0.027) 0px 2.025px 7.847px,
+                       rgba(0,0,0,0.02) 0px 0.8px 2.925px,
+                       rgba(0,0,0,0.01) 0px 0.175px 1.04px;
+        --shadow-md:   rgba(0,0,0,0.04) 0px 8px 32px,
+                       rgba(0,0,0,0.03) 0px 4px 16px,
+                       rgba(0,0,0,0.02) 0px 2px 8px,
+                       rgba(0,0,0,0.01) 0px 0.5px 2px;
+        --shadow-soft: rgba(0,0,0,0.01) 0px 1px 3px,
+                       rgba(0,0,0,0.02) 0px 3px 7px,
+                       rgba(0,0,0,0.02) 0px 7px 15px,
+                       rgba(0,0,0,0.04) 0px 14px 28px,
+                       rgba(0,0,0,0.05) 0px 23px 52px;
+        --glow-cyan:    0 0 0 3px rgba(75,123,201,0.16);
         --glow-magenta: 0 0 0 3px rgba(0,0,0,0.08);
-        --glow-green:   0 0 0 3px rgba(22,163,74,0.15);
-        --glow-red:     0 0 0 3px rgba(220,38,38,0.15);
+        --glow-green:   0 0 0 3px rgba(26,174,57,0.15);
+        --glow-red:     0 0 0 3px rgba(224,62,62,0.15);
 
         /* ── Fonts ── */
-        --font-display: -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        --font-ui:      -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --font-display: "Inter", -apple-system, system-ui, "Segoe UI", sans-serif;
+        --font-ui:      "Inter", -apple-system, system-ui, "Segoe UI", sans-serif;
         --font-mono:    "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 
         /* ── Sidebar ── */
         --sidebar-bg:     #ffffff;
-        --sidebar-border: #e5e7eb;
+        --sidebar-border: rgba(0,0,0,0.08);
 
         /* ── Nav ── */
-        --nav-divider:       #e5e7eb;
-        --nav-active-bg:     rgba(0,0,0,0.05);
+        --nav-divider:       rgba(0,0,0,0.07);
+        --nav-active-bg:     #f6f5f4;
         --nav-active-glow:   transparent;
-        --admin-active-bg:   rgba(0,0,0,0.04);
+        --admin-active-bg:   #f6f5f4;
         --admin-active-glow: transparent;
-        --bottom-divider:    #e5e7eb;
+        --bottom-divider:    rgba(0,0,0,0.07);
 
-        /* ── Role badges — all grayscale ── */
-        --role-admin-bg:     rgba(0,0,0,0.06);
-        --role-admin-border: rgba(0,0,0,0.15);
-        --role-super-bg:     rgba(0,0,0,0.08);
-        --role-super-border: rgba(0,0,0,0.2);
+        /* ── Role badges ── */
+        --role-admin-bg:     rgba(0,117,222,0.07);
+        --role-admin-border: rgba(0,117,222,0.18);
+        --role-super-bg:     rgba(0,117,222,0.1);
+        --role-super-border: rgba(0,117,222,0.25);
 
         /* ── Radius ── */
-        --radius:    8px;
+        --radius:    4px;
+        --radius-md: 8px;
         --radius-lg: 12px;
+
+        /* ── Emil easing curves ── */
+        --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+        --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
       }
 
       html, body, #root {
@@ -78,7 +96,7 @@
       body {
         font-family: var(--font-ui);
         font-size: 14px;
-        letter-spacing: 0.01em;
+        letter-spacing: -0.006em;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
       }
@@ -86,33 +104,47 @@
       /* ── Scrollbar ── */
       ::-webkit-scrollbar { width: 5px; height: 5px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.22); }
 
       input, select, button, textarea { font-family: inherit; }
       input::placeholder, textarea::placeholder { color: var(--accent3); }
 
       input:focus, select:focus, textarea:focus {
         outline: none !important;
-        border-color: #111827 !important;
-        box-shadow: 0 0 0 3px rgba(0,0,0,0.08) !important;
+        border-color: #4b7bc9 !important;
+        box-shadow: 0 0 0 3px rgba(75,123,201,0.14) !important;
       }
 
-      /* ── Animations ── */
+      /* ── Keyframes — Emil-approved ── */
       @keyframes spin {
         to { transform: rotate(360deg); }
       }
+
+      /* Entry: from slight offset + opacity, never from scale(0) */
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(6px); }
         to   { opacity: 1; transform: translateY(0); }
       }
+      @keyframes floatIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
       @keyframes slideInLeft {
-        from { opacity: 0; transform: translateX(-12px); }
+        from { opacity: 0; transform: translateX(-10px); }
         to   { opacity: 1; transform: translateX(0); }
       }
-      @keyframes shimmer {
-        0%   { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
+      @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-6px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.96); }
+        to   { opacity: 1; transform: scale(1); }
       }
       @keyframes modalIn {
         from { opacity: 0; transform: scale(0.97) translateY(4px); }
@@ -122,121 +154,51 @@
         from { opacity: 0; }
         to   { opacity: 1; }
       }
-      @keyframes slideUp {
-        from { opacity: 0; transform: translateY(10px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
       @keyframes pulse {
         0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-      }
-      @keyframes scanLine {
-        0%   { top: -2px;   opacity: 0; }
-        5%   { opacity: 1; }
-        95%  { opacity: 1; }
-        100% { top: 100vh;  opacity: 0; }
-      }
-
-      /* ── New animation keyframes ── */
-      @keyframes floatIn {
-        from { opacity: 0; transform: translateY(14px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
-      @keyframes slideDown {
-        from { opacity: 0; transform: translateY(-8px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
-      @keyframes scaleIn {
-        from { opacity: 0; transform: scale(0.94); }
-        to   { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; }
       }
       @keyframes shimmerFlow {
         0%   { background-position: -400px 0; }
         100% { background-position: 400px 0; }
       }
-      @keyframes glowPulse {
-        0%, 100% { box-shadow: rgba(27,97,201,0.18) 0px 0px 0px 0px; }
-        50%       { box-shadow: rgba(27,97,201,0.28) 0px 0px 16px 4px; }
-      }
       @keyframes navIndicator {
-        from { opacity: 0; transform: scaleX(0.4); }
-        to   { opacity: 1; transform: scaleX(1); }
+        from { opacity: 0; transform: scaleY(0.4); }
+        to   { opacity: 1; transform: scaleY(1); }
       }
-      @keyframes floatUp {
-        0%   { transform: translateY(0px) scale(1); }
-        100% { transform: translateY(-24px) scale(1.04); }
-      }
-      /* Login card spring entrance */
       @keyframes cardSpring {
-        0%   { opacity: 0; transform: scale(0.88) translateY(36px); }
-        60%  { opacity: 1; transform: scale(1.025) translateY(-5px); }
-        80%  { transform: scale(0.985) translateY(3px); }
+        0%   { opacity: 0; transform: scale(0.96) translateY(16px); }
+        60%  { opacity: 1; transform: scale(1.01) translateY(-2px); }
         100% { transform: scale(1) translateY(0); }
       }
-      /* Orb drift animations */
-      @keyframes drift1 {
-        0%   { transform: translate(0px, 0px) scale(1); }
-        30%  { transform: translate(40px, -30px) scale(1.06); }
-        60%  { transform: translate(-25px, 20px) scale(0.95); }
-        100% { transform: translate(0px, 0px) scale(1); }
-      }
-      @keyframes drift2 {
-        0%   { transform: translate(0px, 0px) scale(1); }
-        40%  { transform: translate(-35px, 40px) scale(1.04); }
-        70%  { transform: translate(20px, -15px) scale(0.97); }
-        100% { transform: translate(0px, 0px) scale(1); }
-      }
-      @keyframes drift3 {
-        0%   { transform: translate(0px, 0px) scale(1); }
-        50%  { transform: translate(25px, 30px) scale(0.93); }
-        100% { transform: translate(0px, 0px) scale(1); }
-      }
-      /* Icon ring pulse */
-      @keyframes ringPulse {
-        0%, 100% { opacity: 0.4; transform: scale(1); }
-        50%       { opacity: 0.15; transform: scale(1.18); }
-      }
-      /* Input shimmer on focus */
-      @keyframes borderChase {
-        0%   { background-position: 0% 50%; }
-        50%  { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
+      @keyframes countUp {
+        from { opacity: 0; transform: translateY(4px); }
+        to   { opacity: 1; transform: translateY(0); }
       }
 
       /* Reduced motion */
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after {
-          animation-duration: 0.15s !important;
-          transition-duration: 0.15s !important;
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.1s !important;
         }
-        @keyframes modalIn  { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp  { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes floatIn  { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideDown { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes scaleIn  { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes floatUp  { from { transform: none; } to { transform: none; } }
       }
 
       /* ── Animation utility classes ── */
       .page-enter {
-        animation: floatIn 0.35s cubic-bezier(0.23,1,0.32,1) both;
+        animation: floatIn 0.28s var(--ease-out) both;
       }
+
+      /* Stagger helper — JS sets --i via style attribute */
       .stagger-item {
-        animation: floatIn 0.4s cubic-bezier(0.23,1,0.32,1) both;
-        animation-delay: calc(var(--i, 0) * 60ms);
+        animation: floatIn 0.32s var(--ease-out) both;
+        animation-delay: calc(var(--i, 0) * 50ms);
       }
-      .card-lift {
-        transition: transform 0.2s cubic-bezier(0.23,1,0.32,1),
-                    box-shadow 0.2s cubic-bezier(0.23,1,0.32,1);
-      }
-      .card-lift:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06) !important;
-      }
+
+      /* Skeleton shimmer */
       .skeleton {
         background: linear-gradient(90deg,
-          var(--surface) 25%, rgba(139,92,246,0.06) 50%, var(--surface) 75%);
+          var(--surface) 25%, rgba(0,117,222,0.04) 50%, var(--surface) 75%);
         background-size: 400px 100%;
         animation: shimmerFlow 1.4s ease-in-out infinite;
         border-radius: 6px;
@@ -245,84 +207,87 @@
       /* ── Button styles ── */
       .btn-primary {
         position: relative;
-        background: #111827;
+        background: #4b7bc9;
         color: #ffffff;
         border: none;
-        border-radius: 8px;
-        padding: 9px 18px;
+        border-radius: var(--radius);
+        padding: 8px 16px;
         font-weight: 600;
         font-size: 14px;
-        letter-spacing: 0.01em;
+        letter-spacing: -0.006em;
         cursor: pointer;
-        transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+        box-shadow: rgba(0,0,0,0.1) 0px 1px 3px, rgba(75,123,201,0.12) 0px 2px 8px;
       }
-      .btn-primary:hover  { background: #1f2937; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-      .btn-primary:active { transform: scale(0.99); }
+      @media (hover: hover) and (pointer: fine) {
+        .btn-primary:hover { background: #3a6ab8; box-shadow: rgba(0,0,0,0.14) 0px 4px 12px, rgba(0,117,222,0.18) 0px 4px 16px; }
+      }
+      .btn-primary:active { transform: scale(0.97); }
 
       .btn-ghost {
         position: relative;
-        background: #ffffff;
-        border: 1px solid var(--border);
+        background: rgba(0,0,0,0.04);
+        border: 1px solid rgba(0,0,0,0.1);
         color: var(--accent2);
-        border-radius: 8px;
+        border-radius: var(--radius);
         font-weight: 500;
-        letter-spacing: 0.01em;
+        letter-spacing: -0.006em;
         cursor: pointer;
-        transition: all 0.15s;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        transition: all 0.15s ease;
       }
-      .btn-ghost:hover {
-        border-color: #9ca3af;
-        color: #111827;
-        background: #f9fafb;
+      @media (hover: hover) and (pointer: fine) {
+        .btn-ghost:hover {
+          border-color: rgba(0,0,0,0.18);
+          color: rgba(0,0,0,0.9);
+          background: rgba(0,0,0,0.06);
+        }
       }
+      .btn-ghost:active { transform: scale(0.98); }
 
       .btn-danger {
         background: transparent;
-        border: 1px solid rgba(220,38,38,0.25);
+        border: 1px solid rgba(224,62,62,0.22);
         color: var(--red);
-        border-radius: 8px;
+        border-radius: var(--radius);
         font-weight: 500;
-        letter-spacing: 0.01em;
         cursor: pointer;
-        transition: all 0.15s;
+        transition: all 0.15s ease;
       }
-      .btn-danger:hover {
-        background: rgba(220,38,38,0.05);
-        border-color: var(--red);
+      @media (hover: hover) and (pointer: fine) {
+        .btn-danger:hover { background: rgba(224,62,62,0.05); border-color: var(--red); }
       }
+      .btn-danger:active { transform: scale(0.98); }
 
-      /* Legacy compat */
-      .neon-btn {
-        position: relative;
-        overflow: hidden;
-        transition: all 0.15s;
+      /* ── Card hover lift — Emil: subtle translateY, enhanced shadow ── */
+      .card-lift {
+        transition: transform 0.2s var(--ease-out),
+                    box-shadow 0.2s var(--ease-out);
       }
-      .neon-btn:hover {
-        border-color: var(--cyan) !important;
-        color: var(--cyan) !important;
-        box-shadow: var(--glow-cyan);
+      @media (hover: hover) and (pointer: fine) {
+        .card-lift:hover {
+          transform: translateY(-2px);
+          box-shadow: rgba(0,0,0,0.06) 0px 8px 24px,
+                      rgba(0,0,0,0.04) 0px 4px 12px,
+                      rgba(0,0,0,0.02) 0px 1px 4px !important;
+        }
       }
-
-      .neon-card { position: relative; }
 
       /* ── Sidebar nav ── */
       .nav-btn {
         position: relative;
         overflow: hidden;
-        transition: background 0.15s, color 0.15s;
-        border-radius: 8px;
+        transition: background 0.12s ease, color 0.12s ease;
+        border-radius: 6px;
         width: 100%;
       }
       @media (hover: hover) and (pointer: fine) {
         .nav-btn:hover {
-          background: rgba(0,0,0,0.04) !important;
+          background: var(--surface) !important;
         }
       }
       .nav-btn.active {
         background: var(--nav-active-bg) !important;
-        color: var(--accent) !important;
+        color: rgba(0,0,0,0.9) !important;
         font-weight: 600 !important;
       }
       .nav-btn.active::before {
@@ -330,48 +295,35 @@
         position: absolute;
         left: 0; top: 50%;
         transform: translateY(-50%);
-        width: 3px; height: 55%;
-        background: var(--accent);
+        width: 3px; height: 56%;
+        background: #4b7bc9;
         border-radius: 0 2px 2px 0;
+        animation: navIndicator 0.2s var(--ease-out) both;
       }
 
       /* ── Pulse dot ── */
       .pulse-dot {
         display: inline-block;
-        width: 8px; height: 8px;
+        width: 7px; height: 7px;
         border-radius: 50%;
         background: var(--green);
       }
 
-      /* ═══ Dark mode — reserved for future implementation ═══ */
-      [data-theme="dark"] {
-        --bg:       #0f172a;
-        --surface:  #1e293b;
-        --card:     #1e293b;
-        --border:   rgba(255,255,255,0.08);
-        --accent:   #f8fafc;
-        --accent2:  rgba(248,250,252,0.65);
-        --accent3:  rgba(248,250,252,0.38);
-        --sidebar-bg:     #0f172a;
-        --sidebar-border: rgba(255,255,255,0.07);
-        --nav-active-bg:  rgba(129,140,248,0.12);
-        --nav-divider:    rgba(255,255,255,0.07);
+      /* ── Pill badge ── */
+      .badge-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        line-height: 1.4;
       }
 
-      [data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); }
-      [data-theme="dark"] .card-lift:hover {
-        box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3) !important;
-      }
-      [data-theme="dark"] .btn-ghost {
-        background: rgba(255,255,255,0.04);
-        border-color: rgba(255,255,255,0.1);
-        box-shadow: none;
-      }
-      [data-theme="dark"] .btn-ghost:hover {
-        background: rgba(129,140,248,0.1);
-        border-color: rgba(129,140,248,0.4);
-        color: #818cf8;
-      }
+      /* Legacy compat */
+      .neon-btn { transition: all 0.15s ease; }
+      .neon-card { position: relative; }
     </style>
   </head>
   <body>

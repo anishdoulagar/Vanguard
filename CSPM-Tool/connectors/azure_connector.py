@@ -33,13 +33,22 @@ except ImportError:
 
 class AzureConnector:
     def __init__(self, subscription_id: str, tenant_id: str,
-                 client_id: str, client_secret: str):
+                 client_id: str, client_secret: str,
+                 rg_filter: str | None = None):
         self.subscription_id = subscription_id
+        self.rg_filter       = rg_filter.lower() if rg_filter else None
         self._credential     = ClientSecretCredential(
             tenant_id=tenant_id,
             client_id=client_id,
             client_secret=client_secret,
         )
+
+    def _rg_ok(self, resource_id: str) -> bool:
+        """Return True if the resource belongs to the filtered RG (or no filter set)."""
+        if not self.rg_filter:
+            return True
+        parts = (resource_id or "").split("/")
+        return len(parts) > 4 and parts[4].lower() == self.rg_filter
 
     def _resource_client(self):
         return ResourceManagementClient(self._credential, self.subscription_id)
@@ -117,6 +126,8 @@ class AzureConnector:
             accounts = list(client.storage_accounts.list())
             result  = []
             for sa in accounts:
+                if not self._rg_ok(sa.id):
+                    continue
                 props = sa.properties or {}
                 blob_props = None
                 container_props = None
@@ -179,6 +190,8 @@ class AzureConnector:
             vms    = list(client.virtual_machines.list_all())
             result = []
             for vm in vms:
+                if not self._rg_ok(vm.id):
+                    continue
                 # Check OS disk encryption
                 encrypted = False
                 data_disk_encrypted = False
@@ -266,6 +279,8 @@ class AzureConnector:
             nsgs   = list(client.network_security_groups.list_all())
             result = []
             for nsg in nsgs:
+                if not self._rg_ok(nsg.id):
+                    continue
                 rdp_open  = False
                 ssh_open  = False
                 http_open = False
@@ -328,6 +343,8 @@ class AzureConnector:
             vaults = list(client.vaults.list())
             result = []
             for vault in vaults:
+                if not self._rg_ok(vault.id):
+                    continue
                 rg = vault.id.split("/")[4]
                 try:
                     detail = client.vaults.get(rg, vault.name)
@@ -388,6 +405,8 @@ class AzureConnector:
             servers = list(client.servers.list())
             result  = []
             for server in servers:
+                if not self._rg_ok(server.id):
+                    continue
                 rg = server.id.split("/")[4]
 
                 # TDE (check per database)
@@ -486,6 +505,8 @@ class AzureConnector:
             apps = list(client.web_apps.list())
             result = []
             for app in apps:
+                if not self._rg_ok(app.id):
+                    continue
                 rg = app.resource_group
                 config = None
                 try:
@@ -547,6 +568,8 @@ class AzureConnector:
             clusters = list(client.managed_clusters.list())
             result   = []
             for c in clusters:
+                if not self._rg_ok(c.id):
+                    continue
                 addon_profiles = c.addon_profiles or {}
 
                 # Azure Policy addon
@@ -604,6 +627,8 @@ class AzureConnector:
             registries = list(client.registries.list())
             result     = []
             for reg in registries:
+                if not self._rg_ok(reg.id):
+                    continue
                 # Geo-replication
                 geo_replication_enabled = False
                 try:
@@ -647,6 +672,8 @@ class AzureConnector:
             accounts = list(client.database_accounts.list())
             result   = []
             for acc in accounts:
+                if not self._rg_ok(acc.id):
+                    continue
                 ip_rules = getattr(acc, "ip_rules", []) or []
                 ip_rule_values = [getattr(r, "ip_address_or_range", str(r)) for r in ip_rules]
 
@@ -675,6 +702,8 @@ class AzureConnector:
             caches = list(client.redis.list())
             result = []
             for cache in caches:
+                if not self._rg_ok(cache.id):
+                    continue
                 result.append({
                     "id":                   cache.id,
                     "name":                 cache.name,
@@ -703,6 +732,8 @@ class AzureConnector:
             servers = list(client.servers.list())
             result  = []
             for sv in servers:
+                if not self._rg_ok(sv.id):
+                    continue
                 rg = sv.id.split("/")[4]
 
                 # Collect server parameters for log/connection settings
@@ -765,6 +796,8 @@ class AzureConnector:
             servers = list(client.servers.list())
             result  = []
             for sv in servers:
+                if not self._rg_ok(sv.id):
+                    continue
                 rg = sv.id.split("/")[4]
 
                 # Server parameters
@@ -814,6 +847,8 @@ class AzureConnector:
             namespaces = list(client.namespaces.list())
             result     = []
             for ns in namespaces:
+                if not self._rg_ok(ns.id):
+                    continue
                 encryption = getattr(ns, "encryption", None)
                 sku_name = ns.sku.name if ns.sku else "Basic"
 
@@ -848,6 +883,8 @@ class AzureConnector:
             namespaces = list(client.namespaces.list())
             result     = []
             for ns in namespaces:
+                if not self._rg_ok(ns.id):
+                    continue
                 encryption = getattr(ns, "encryption", None)
                 sku_name = ns.sku.name if ns.sku else "Basic"
 
@@ -874,6 +911,8 @@ class AzureConnector:
             watchers = list(client.network_watchers.list_all())
             result   = []
             for watcher in watchers:
+                if not self._rg_ok(watcher.id):
+                    continue
                 # Flow logs
                 flow_logs_enabled = False
                 try:
@@ -904,6 +943,8 @@ class AzureConnector:
             gateways = list(client.application_gateways.list_all())
             result   = []
             for gw in gateways:
+                if not self._rg_ok(gw.id):
+                    continue
                 sku_name = ""
                 try:
                     sku_name = gw.sku.name if gw.sku else ""
@@ -956,6 +997,8 @@ class AzureConnector:
             workspaces = list(client.workspaces.list())
             result     = []
             for ws in workspaces:
+                if not self._rg_ok(ws.id):
+                    continue
                 sku_name = ws.sku.name if ws.sku else "PerGB2018"
 
                 result.append({
@@ -989,6 +1032,8 @@ class AzureConnector:
             workflows = list(client.workflows.list_by_subscription())
             result    = []
             for wf in workflows:
+                if not self._rg_ok(wf.id):
+                    continue
                 identity = getattr(wf, "identity", None)
 
                 # Diagnostic logging (simplified)
@@ -1082,6 +1127,8 @@ class AzureConnector:
             ips    = list(client.public_ip_addresses.list_all())
             result = []
             for ip in ips:
+                if not self._rg_ok(ip.id):
+                    continue
                 result.append({
                     "id":              ip.id,
                     "name":            ip.name,
@@ -1102,6 +1149,8 @@ class AzureConnector:
             lbs    = list(client.load_balancers.list_all())
             result = []
             for lb in lbs:
+                if not self._rg_ok(lb.id):
+                    continue
                 result.append({
                     "id":             lb.id,
                     "name":           lb.name,

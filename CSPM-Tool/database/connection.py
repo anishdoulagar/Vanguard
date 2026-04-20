@@ -201,6 +201,8 @@ DO $$ BEGIN ALTER TABLE alert_settings ALTER COLUMN user_id SET NOT NULL; EXCEPT
 ALTER TABLE alert_settings DROP CONSTRAINT IF EXISTS alert_settings_account_id_key;
 ALTER TABLE alert_settings ADD COLUMN IF NOT EXISTS alert_on_medium BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE alert_settings ADD COLUMN IF NOT EXISTS alert_on_new_finding BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE alert_settings ADD COLUMN IF NOT EXISTS slack_webhook_url TEXT;
+ALTER TABLE alert_settings ADD COLUMN IF NOT EXISTS slack_enabled BOOLEAN NOT NULL DEFAULT false;
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'alert_settings_user_id_account_id_key') THEN
         ALTER TABLE alert_settings ADD CONSTRAINT alert_settings_user_id_account_id_key UNIQUE (user_id, account_id);

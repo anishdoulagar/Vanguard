@@ -352,14 +352,35 @@ async def save_scan_result(conn, user_id: str, account_id: Optional[str],
 
 async def get_scans_for_user(conn, user_id: str,
                               account_id: Optional[str] = None,
-                              limit: int = 20,
+                              limit: int = 100,
                               since=None,
+                              until=None,
+                              cloud: Optional[str] = None,
                               role: str = "analyst") -> list:
     """Returns scans scoped to the user's team accounts.
     superadmin sees all scans; others see only scans for accounts in their teams."""
 
+    # ── Build WHERE clauses ──────────────────────────────────────────────────
+    # We use a parameterised query built dynamically to avoid N×M query variants.
+    # All variants share the same SELECT; only the WHERE conditions differ.
+
+    base_select = """
+        SELECT sr.id, sr.user_id, sr.account_id, sr.cloud, sr.scores,
+               sr.resources_scanned, sr.finding_counts, sr.triggered_by,
+               sr.created_at, ca.name AS account_name
+        FROM scan_results sr
+        LEFT JOIN cloud_accounts ca ON ca.id = sr.account_id
+    """
+
+    conditions: list[str] = []
+    params: list = []
+
+    def p(v):
+        params.append(v)
+        return f"${len(params)}"
+
+    # Team / account scoping
     if account_id:
-        # For a specific account, verify the non-superadmin user has team access first
         if role != "superadmin":
             accessible = await conn.fetchval(
                 """
@@ -371,95 +392,28 @@ async def get_scans_for_user(conn, user_id: str,
             )
             if not accessible:
                 return []
-        if since:
-            rows = await conn.fetch(
-                """
-                SELECT id, user_id, account_id, cloud, scores, resources_scanned,
-                       finding_counts, triggered_by, created_at
-                FROM scan_results
-                WHERE account_id = $1 AND created_at >= $2
-                ORDER BY created_at DESC
-                LIMIT $3
-                """,
-                account_id, since, limit,
-            )
-        else:
-            rows = await conn.fetch(
-                """
-                SELECT id, user_id, account_id, cloud, scores, resources_scanned,
-                       finding_counts, triggered_by, created_at
-                FROM scan_results
-                WHERE account_id = $1
-                ORDER BY created_at DESC
-                LIMIT $2
-                """,
-                account_id, limit,
-            )
-    elif role == "superadmin":
-        if since:
-            rows = await conn.fetch(
-                """
-                SELECT sr.id, sr.user_id, sr.account_id, sr.cloud, sr.scores,
-                       sr.resources_scanned, sr.finding_counts, sr.triggered_by,
-                       sr.created_at, ca.name AS account_name
-                FROM scan_results sr
-                LEFT JOIN cloud_accounts ca ON ca.id = sr.account_id
-                WHERE sr.created_at >= $1
-                ORDER BY sr.created_at DESC
-                LIMIT $2
-                """,
-                since, limit,
-            )
-        else:
-            rows = await conn.fetch(
-                """
-                SELECT sr.id, sr.user_id, sr.account_id, sr.cloud, sr.scores,
-                       sr.resources_scanned, sr.finding_counts, sr.triggered_by,
-                       sr.created_at, ca.name AS account_name
-                FROM scan_results sr
-                LEFT JOIN cloud_accounts ca ON ca.id = sr.account_id
-                ORDER BY sr.created_at DESC
-                LIMIT $1
-                """,
-                limit,
-            )
-    else:
-        # Non-superadmin: restrict to team-accessible accounts
-        if since:
-            rows = await conn.fetch(
-                """
-                SELECT sr.id, sr.user_id, sr.account_id, sr.cloud, sr.scores,
-                       sr.resources_scanned, sr.finding_counts, sr.triggered_by,
-                       sr.created_at, ca.name AS account_name
-                FROM scan_results sr
-                LEFT JOIN cloud_accounts ca ON ca.id = sr.account_id
-                WHERE sr.created_at >= $1
-                AND sr.account_id IN (
-                    SELECT id FROM cloud_accounts
-                    WHERE team_id IN (SELECT team_id FROM team_members WHERE user_id = $2)
-                )
-                ORDER BY sr.created_at DESC
-                LIMIT $3
-                """,
-                since, user_id, limit,
-            )
-        else:
-            rows = await conn.fetch(
-                """
-                SELECT sr.id, sr.user_id, sr.account_id, sr.cloud, sr.scores,
-                       sr.resources_scanned, sr.finding_counts, sr.triggered_by,
-                       sr.created_at, ca.name AS account_name
-                FROM scan_results sr
-                LEFT JOIN cloud_accounts ca ON ca.id = sr.account_id
-                WHERE sr.account_id IN (
-                    SELECT id FROM cloud_accounts
-                    WHERE team_id IN (SELECT team_id FROM team_members WHERE user_id = $1)
-                )
-                ORDER BY sr.created_at DESC
-                LIMIT $2
-                """,
-                user_id, limit,
-            )
+        conditions.append(f"sr.account_id = {p(account_id)}")
+    elif role != "superadmin":
+        conditions.append(
+            f"sr.account_id IN ("
+            f"  SELECT id FROM cloud_accounts"
+            f"  WHERE team_id IN (SELECT team_id FROM team_members WHERE user_id = {p(user_id)})"
+            f")"
+        )
+
+    # Optional filters
+    if cloud:
+        conditions.append(f"sr.cloud = {p(cloud)}")
+    if since:
+        conditions.append(f"sr.created_at >= {p(since)}")
+    if until:
+        conditions.append(f"sr.created_at <= {p(until)}")
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    params.append(limit)
+    sql = f"{base_select} {where} ORDER BY sr.created_at DESC LIMIT ${len(params)}"
+
+    rows = await conn.fetch(sql, *params)
     return [_deserialise_scan(dict(r)) for r in rows]
 
 
@@ -566,24 +520,26 @@ async def upsert_alert_settings(conn, user_id: str, account_id: str,
                                  alert_on_critical: bool, alert_on_high: bool,
                                  enabled: bool,
                                  alert_on_medium: bool = False,
-                                 alert_on_new_finding: bool = False) -> dict:
+                                 alert_on_new_finding: bool = False,
+                                 slack_webhook_url: str | None = None,
+                                 slack_enabled: bool = False) -> dict:
     row = await conn.fetchrow(
         """
         INSERT INTO alert_settings
             (user_id, account_id, email, score_threshold,
              alert_on_critical, alert_on_high, alert_on_medium,
-             alert_on_new_finding, enabled)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+             alert_on_new_finding, enabled, slack_webhook_url, slack_enabled)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
         ON CONFLICT (user_id, account_id)
         DO UPDATE SET email=$3, score_threshold=$4,
                       alert_on_critical=$5, alert_on_high=$6,
                       alert_on_medium=$7, alert_on_new_finding=$8,
-                      enabled=$9
+                      enabled=$9, slack_webhook_url=$10, slack_enabled=$11
         RETURNING *
         """,
         user_id, account_id, email, score_threshold,
         alert_on_critical, alert_on_high, alert_on_medium,
-        alert_on_new_finding, enabled
+        alert_on_new_finding, enabled, slack_webhook_url, slack_enabled
     )
     return dict(row)
 
